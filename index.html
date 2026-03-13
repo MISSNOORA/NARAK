@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<!--
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt 
+Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html 
+-->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نرعاك - تسجيل الدخول</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep-red: #520000;
+    --muted-brown: #BD9E77;
+    --light-beige: #ECC590;
+    --medium-brown: #8E775E;
+    --ivory: #FFFFF0;
+    --black: #000000;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Tajawal', sans-serif;
+    background: var(--ivory);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .page-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* Decorative background */
+  .bg-decor {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .bg-decor::before {
+    content: '';
+    position: absolute;
+    top: -120px; left: -120px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(82,0,0,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .bg-decor::after {
+    content: '';
+    position: absolute;
+    bottom: -100px; right: -100px;
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(189,158,119,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 20px 80px rgba(82,0,0,0.12), 0 4px 20px rgba(0,0,0,0.06);
+    width: 900px;
+    max-width: 96vw;
+    min-height: 560px;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    animation: slideUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Left panel (decorative side) */
+  .side-panel {
+    width: 320px;
+    min-height: 100%;
+    background: var(--deep-red);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 32px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .side-panel::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+  }
+  .side-panel::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -80px;
+    width: 250px; height: 250px;
+    background: rgba(189,158,119,0.08);
+    border-radius: 50%;
+  }
+
+  .side-panel .logo-area {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+
+.logo-img {
+  width: 250px;
+  height: 250px;
+  object-fit: contain;
+}
+
+  .side-panel h1 {
+    font-size: 2.6rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -1px;
+    margin-bottom: 6px;
+  }
+
+  .side-panel .tagline {
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.55);
+    font-weight: 400;
+    line-height: 1.6;
+    text-align: center;
+    margin-top: 12px;
+  }
+
+  .side-tabs {
+    margin-top: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    position: relative;
+    z-index: 2;
+  }
+
+  .side-tab {
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-align: center;
+    border: none;
+    text-decoration: none;
+    display: block;
+  }
+
+  .side-tab.active {
+    background: #fff;
+    color: var(--deep-red);
+  }
+
+  .side-tab.inactive {
+    background: transparent;
+    color: rgba(255,255,255,0.65);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .side-tab.inactive:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+  }
+
+  /* Main form area */
+  .form-area {
+    flex: 1;
+    padding: 52px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .form-header {
+    margin-bottom: 36px;
+  }
+
+  .form-header h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--deep-red);
+    margin-bottom: 6px;
+  }
+
+  .form-header p {
+    font-size: 0.9rem;
+    color: var(--medium-brown);
+    font-weight: 400;
+  }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 8px;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  select {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid #e8e0d8;
+    border-radius: 10px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.95rem;
+    color: #333;
+    background: #faf8f5;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    text-align: right;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--deep-red);
+    box-shadow: 0 0 0 3px rgba(82,0,0,0.07);
+    background: #fff;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    background: var(--deep-red);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.2s, transform 0.15s;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-primary:hover {
+    background: #3d0000;
+    transform: translateY(-1px);
+  }
+
+  .forgot {
+    font-size: 0.82rem;
+    color: var(--muted-brown);
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    margin-top: -10px;
+    margin-bottom: 16px;
+  }
+
+  .forgot:hover { color: var(--deep-red); }
+
+  .divider {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #aaa;
+    margin: 20px 0;
+    position: relative;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: #e8e0d8;
+  }
+  .divider::before { right: 0; }
+  .divider::after { left: 0; }
+
+  .role-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .role-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border: 1.5px solid #e8e0d8;
+    border-radius: 10px;
+    background: #faf8f5;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #666;
+    text-align: center;
+  }
+
+  .role-btn.selected {
+    border-color: var(--deep-red);
+    background: rgba(82,0,0,0.05);
+    color: var(--deep-red);
+  }
+
+  .role-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 10px;
+  }
+
+  /* Dashboard links at bottom */
+  .demo-links {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 100;
+    background: rgba(255,255,255,0.92);
+    padding: 10px 18px;
+    border-radius: 50px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .demo-links span {
+    font-size: 0.75rem;
+    color: #888;
+    display: flex;
+    align-items: center;
+  }
+
+  .demo-link {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--deep-red);
+    text-decoration: none;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(82,0,0,0.2);
+    transition: all 0.2s;
+  }
+
+  .demo-link:hover {
+    background: var(--deep-red);
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-decor"></div>
+
+<div class="page-wrapper">
+  <div class="card">
+
+    <!-- Side Panel -->
+    <div class="side-panel">
+      <div class="logo-area">
+        <div class="logo-icon">
+        <img src="images/2.png" alt="نرعاك" class="logo-img">
+        </div>
+        <p class="tagline">منصة خدمات المختبرات الصحية<br>في مدينة الرياض</p>
+      </div>
+
+      <div class="side-tabs">
+        <button class="side-tab active" onclick="showPanel('login', this)">تسجيل الدخول</button>
+        <button class="side-tab inactive" onclick="showPanel('signup', this)">إنشاء حساب جديد</button>
+      </div>
+    </div>
+
+    <!-- Form Area -->
+    <div class="form-area">
+
+      <!-- LOGIN PANEL -->
+      <div class="panel active" id="panel-login">
+        <div class="form-header">
+          <h2>أهلاً بعودتك</h2>
+          <p>سجّل دخولك للوصول إلى خدمات نرعاك</p>
+        </div>
+
+        <div class="role-label">نوع الحساب</div>
+        <div class="role-selector">
+          <button class="role-btn selected">عميل</button>
+          <button class="role-btn" onclick="this.parentNode.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('selected')); this.classList.add('selected')">مختبر</button>
+        </div>
+
+        <div class="form-group">
+          <label>البريد الإلكتروني</label>
+          <input type="email" placeholder="example@email.com">
+        </div>
+
+        <div class="form-group">
+          <label>كلمة المرور</label>
+          <input type="password" placeholder="••••••••">
+        </div>
+
+        <a href="#" class="forgot">نسيت كلمة المرور؟</a>
+
+        <button class="btn-primary" onclick="loginDemo()">تسجيل الدخول</button>
+      </div>
+
+      <!-- SIGNUP PANEL -->
+      <div class="panel" id="panel-signup">
+        <div class="form-header">
+          <h2>إنشاء حساب جديد</h2>
+          <p>انضم إلى منصة نرعاك لخدمات المختبرات</p>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>الاسم الأول</label>
+            <input type="text" placeholder="الاسم الأول">
+          </div>
+          <div class="form-group">
+            <label>اسم العائلة</label>
+            <input type="text" placeholder="اسم العائلة">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>البريد الإلكتروني</label>
+          <input type="email" placeholder="example@email.com">
+        </div>
+
+        <div class="form-group">
+          <label>رقم الجوال</label>
+          <input type="tel" placeholder="05xxxxxxxx">
+        </div>
+
+        <div class="form-group">
+          <label>كلمة المرور</label>
+          <input type="password" placeholder="••••••••">
+        </div>
+
+        <button class="btn-primary" onclick="window.location.href='customer-dashboard.html'">إنشاء الحساب</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script>
+function showPanel(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+
+  document.querySelectorAll('.side-tab').forEach(t => {
+    t.classList.remove('active');
+    t.classList.add('inactive');
+  });
+
+  btn.classList.add('active');
+  btn.classList.remove('inactive');
+}
+
+function loginDemo() {
+  const selected = document.querySelector('.role-btn.selected');
+  const role = selected ? selected.textContent.trim() : '';
+
+  if (role === 'مختبر') {
+    window.location.href = 'lab-dashboard.html';
+  } else {
+    window.location.href = 'customer-dashboard.html';
+  }
+}
+</script>
+</body>
+</html>
