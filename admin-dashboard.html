@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نرعاك - لوحة المدير</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep-red: #520000;
+    --muted-brown: #BD9E77;
+    --light-beige: #ECC590;
+    --medium-brown: #8E775E;
+    --ivory: #FFFFF0;
+    --sidebar-w: 240px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Tajawal', sans-serif; background: #f5f0e8; min-height: 100vh; color: #333; }
+
+  .sidebar {
+    position: fixed; top: 0; right: 0;
+    width: var(--sidebar-w); height: 100vh;
+    background: #1a0a00;
+    display: flex; flex-direction: column; z-index: 100;
+  }
+
+  .sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .sidebar-logo h2 { font-size: 1.6rem; font-weight: 800; color: #fff; }
+  .sidebar-logo p { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+  .sidebar-user {
+    padding: 18px 24px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .user-avatar {
+    width: 38px; height: 38px; background: var(--light-beige);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; font-weight: 700; color: var(--deep-red); flex-shrink: 0;
+  }
+  .user-info strong { font-size: 0.88rem; color: #fff; display: block; font-weight: 600; }
+  .user-info span { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+
+  nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+  .nav-section { font-size: 0.68rem; font-weight: 700; color: rgba(255,255,255,0.25); letter-spacing: 1.2px; text-transform: uppercase; padding: 12px 12px 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+    border-radius: 10px; cursor: pointer; transition: all 0.2s; margin-bottom: 2px;
+    color: rgba(255,255,255,0.55); font-size: 0.88rem; font-weight: 500; text-decoration: none;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+  .nav-item.active { background: rgba(82,0,0,0.4); color: #fff; font-weight: 600; border-right: 3px solid var(--light-beige); }
+  .nav-item .icon { font-size: 1.1rem; width: 20px; text-align: center; }
+
+  .sidebar-footer { padding: 16px 12px; border-top: 1px solid rgba(255,255,255,0.07); }
+  .logout-btn {
+    display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+    border-radius: 10px; cursor: pointer; color: rgba(255,255,255,0.4);
+    font-size: 0.85rem; transition: all 0.2s; text-decoration: none;
+  }
+  .logout-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
+
+  .main { margin-right: var(--sidebar-w); min-height: 100vh; padding: 32px 36px; }
+
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .page-title h1 { font-size: 1.6rem; font-weight: 800; color: var(--deep-red); }
+  .page-title p { font-size: 0.85rem; color: var(--medium-brown); margin-top: 2px; }
+
+  .btn { padding: 10px 22px; border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+  .btn-primary { background: var(--deep-red); color: #fff; }
+  .btn-primary:hover { background: #3d0000; transform: translateY(-1px); }
+  .btn-success { background: #2d7a3a; color: #fff; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: #fff; border-radius: 16px; padding: 22px 20px;
+    position: relative; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  .stat-card::after {
+    content: ''; position: absolute; top: 0; right: 0;
+    width: 4px; height: 100%; border-radius: 0 16px 16px 0;
+  }
+  .stat-card:nth-child(1)::after { background: var(--deep-red); }
+  .stat-card:nth-child(2)::after { background: var(--muted-brown); }
+  .stat-card:nth-child(3)::after { background: #2d7a3a; }
+  .stat-card:nth-child(4)::after { background: #c8860a; }
+  .stat-num { font-size: 2rem; font-weight: 800; line-height: 1; }
+  .stat-card:nth-child(1) .stat-num { color: var(--deep-red); }
+  .stat-card:nth-child(2) .stat-num { color: var(--muted-brown); }
+  .stat-card:nth-child(3) .stat-num { color: #2d7a3a; }
+  .stat-card:nth-child(4) .stat-num { color: #c8860a; }
+  .stat-label { font-size: 0.8rem; color: #888; margin-top: 6px; font-weight: 500; }
+
+  .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .card-title { font-size: 1rem; font-weight: 700; color: #222; }
+
+  .status-badge { font-size: 0.72rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
+  .status-pending { background: #fff8e6; color: #c8860a; }
+  .status-confirmed { background: #e8f4ea; color: #2d7a3a; }
+  .status-progress { background: #e8f0fc; color: #2a5cc4; }
+  .status-done { background: #f0f0f0; color: #666; }
+  .status-waiting { background: #fce8e8; color: #c42a2a; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .table-header, .table-row {
+    display: grid; gap: 8px; padding: 10px 0; align-items: center;
+  }
+  .table-header { font-size: 0.72rem; font-weight: 700; color: #aaa; letter-spacing: 0.5px; border-bottom: 2px solid #f0ebe4; padding-bottom: 10px; }
+  .table-row { border-bottom: 1px solid #f0ebe4; padding: 12px 0; }
+  .table-row:last-child { border-bottom: none; }
+
+  .badge-active { font-size: 0.7rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: #e8f4ea; color: #2d7a3a; }
+  .badge-blocked { font-size: 0.7rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: #fce8e8; color: #c42a2a; }
+  .badge-waiting { font-size: 0.7rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: #fff8e6; color: #c8860a; }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+  }
+
+  .labs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .lab-home-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: #faf8f5;
+    border-radius: 12px;
+    border: 1px solid #f0ebe4;
+  }
+
+  .lab-logo-box {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #f1e8df;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .lab-logo-box img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .lab-details strong {
+    display: block;
+    font-size: 0.88rem;
+    color: #222;
+    font-weight: 700;
+  }
+
+  .lab-details span {
+    display: block;
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 2px;
+  }
+
+  .lab-tests-line {
+    font-size: 0.72rem;
+    color: var(--medium-brown);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2>نرعاك</h2>
+    <p>لوحة المدير</p>
+  </div>
+  <div class="sidebar-user">
+    <div class="user-avatar">م</div>
+    <div class="user-info">
+      <strong>مدير النظام</strong>
+      <span>صلاحيات كاملة</span>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-section">الإدارة العامة</div>
+    <a class="nav-item active" href="#" onclick="showSection('home',this)">
+      <span class="icon">📊</span> الرئيسية
+    </a>
+    <a class="nav-item" href="#" onclick="showSection('reports',this)">
+      <span class="icon">🚩</span> البلاغات
+    </a>
+    <a class="nav-item" href="#" onclick="showSection('requests',this)">
+      <span class="icon">📋</span> المواعيد
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <a class="logout-btn" href="login.html"><span>🚪</span> تسجيل الخروج</a>
+  </div>
+</aside>
+
+<main class="main">
+
+  <!-- HOME -->
+  <div class="section active" id="sec-home">
+    <div class="page-header">
+      <div class="page-title">
+        <h1>لوحة المراقبة</h1>
+        <p>نظرة عامة على النظام — الثلاثاء، ١٠ مارس ٢٠٢٦</p>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num">١٢٤</div><div class="stat-label">إجمالي العملاء</div></div>
+      <div class="stat-card"><div class="stat-num">٤</div><div class="stat-label">مختبرات نشطة</div></div>
+      <div class="stat-card"><div class="stat-num">٣٧</div><div class="stat-label">طلبات هذا الشهر</div></div>
+      <div class="stat-card"><div class="stat-num">٢</div><div class="stat-label">مختبرات تنتظر الموافقة</div></div>
+    </div>
+
+    <div class="home-grid">
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">آخر الطلبات</div>
+            <a href="#" style="font-size:0.78rem;color:var(--deep-red);font-weight:600;text-decoration:none;" onclick="showSection('requests',document.querySelector('[onclick*=requests]'))">عرض الكل</a>
+          </div>
+          <div>
+            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;font-size:0.7rem;font-weight:700;color:#aaa;padding-bottom:8px;border-bottom:1px solid #f0ebe4;margin-bottom:4px;">
+              <div>العميل / الفحص</div><div>المختبر</div><div style="text-align:center">الحالة</div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;padding:10px 0;align-items:center;border-bottom:1px solid #f0ebe4;">
+              <div><div style="font-size:0.85rem;font-weight:600;">نورة آل حسين</div><div style="font-size:0.73rem;color:#999;">فيتامين د، كالسيوم</div></div>
+              <div style="font-size:0.78rem;color:var(--medium-brown);">مختبرات وريد الطبية</div>
+              <div style="text-align:center"><span class="status-badge status-confirmed">مؤكد</span></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;padding:10px 0;align-items:center;border-bottom:1px solid #f0ebe4;">
+              <div><div style="font-size:0.85rem;font-weight:600;">خالد الشمري</div><div style="font-size:0.73rem;color:#999;">فيتامين د</div></div>
+              <div style="font-size:0.78rem;color:var(--medium-brown);">مختبرات البرج</div>
+              <div style="text-align:center"><span class="status-badge status-pending">انتظار</span></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;padding:10px 0;align-items:center;">
+              <div><div style="font-size:0.85rem;font-weight:600;">عبدالله السفياني</div><div style="font-size:0.73rem;color:#999;">كالسيوم</div></div>
+              <div style="font-size:0.78rem;color:var(--medium-brown);">عيادات النهدي كير</div>
+              <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">حسابات المختبرات</div>
+          </div>
+
+          <div class="labs-grid">
+            <div class="lab-home-card">
+              <div class="lab-logo-box"><img src="images/lab1.png" alt="الحبيب"></div>
+              <div class="lab-details">
+                <strong>مجموعة الدكتور سليمان الحبيب الطبية</strong>
+                <span>الرياض</span>
+                <div class="lab-tests-line">فيتامين د، كالسيوم، هيموجلوبين</div>
+              </div>
+            </div>
+
+            <div class="lab-home-card">
+              <div class="lab-logo-box"><img src="images/lab2.png" alt="البرج"></div>
+              <div class="lab-details">
+                <strong>مختبرات البرج</strong>
+                <span>الرياض</span>
+                <div class="lab-tests-line">فيتامين د، كالسيوم، فيتامين ب١٢</div>
+              </div>
+            </div>
+
+            <div class="lab-home-card">
+              <div class="lab-logo-box"><img src="images/lab3.png" alt="النهدي"></div>
+              <div class="lab-details">
+                <strong>عيادات النهدي كير</strong>
+                <span>الرياض</span>
+                <div class="lab-tests-line">فيتامين د، كالسيوم، الحديد</div>
+              </div>
+            </div>
+
+            <div class="lab-home-card">
+              <div class="lab-logo-box"><img src="images/lab4.png" alt="وريد"></div>
+              <div class="lab-details">
+                <strong>مختبرات وريد الطبية</strong>
+                <span>الرياض</span>
+                <div class="lab-tests-line">فيتامين د، كالسيوم، الكوليسترول الكلي</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">مختبرات تنتظر الموافقة</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="padding:14px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
+              <div style="font-size:0.88rem;font-weight:700;color:#222;">مختبر الأمل الطبي</div>
+              <div style="font-size:0.75rem;color:#999;margin-bottom:10px;">حي الروضة، الرياض</div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-success" style="padding:6px 16px;font-size:0.78rem;" onclick="this.closest('div[style*=border-right]').style.background='#e8f4ea';this.closest('div[style*=border-right]').style.borderRightColor='#2d7a3a';this.textContent='تمت الموافقة ✓';">موافقة ✓</button>
+              </div>
+            </div>
+
+            <div style="padding:14px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
+              <div style="font-size:0.88rem;font-weight:700;color:#222;">مختبر الرحمة</div>
+              <div style="font-size:0.75rem;color:#999;margin-bottom:10px;">حي الصحافة، الرياض</div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-success" style="padding:6px 16px;font-size:0.78rem;" onclick="this.closest('div[style*=border-right]').style.background='#e8f4ea';this.closest('div[style*=border-right]').style.borderRightColor='#2d7a3a';this.textContent='تمت الموافقة ✓';">موافقة ✓</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">ملخص البلاغات</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="padding:12px;background:#fce8e8;border-radius:10px;border-right:3px solid #c42a2a;">
+              <div style="font-size:0.86rem;font-weight:700;color:#222;">بلاغ على حساب: نورة الحسين</div>
+              <div style="font-size:0.75rem;color:#777;margin-top:4px;">تم الإبلاغ بواسطة المختبر بسبب تأخر في الحضور.</div>
+            </div>
+
+            <div style="padding:12px;background:#fce8e8;border-radius:10px;border-right:3px solid #c42a2a;">
+              <div style="font-size:0.86rem;font-weight:700;color:#222;">بلاغ على حساب: محمد العتيبي</div>
+              <div style="font-size:0.75rem;color:#777;margin-top:4px;">شكوى متكررة من إساءة استخدام الخدمة.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="section" id="sec-reports">
+    <div class="page-header">
+      <div class="page-title"><h1>البلاغات</h1><p>الحسابات التي تم الإبلاغ عنها فقط</p></div>
+    </div>
+
+    <div class="card">
+      <div class="table-header" style="grid-template-columns:2fr 1.5fr 1fr 1.5fr 1fr;">
+        <div>اسم العميل</div>
+        <div>البريد الإلكتروني</div>
+        <div>الجوال</div>
+        <div>سبب البلاغ</div>
+        <div style="text-align:center">الإجراء</div>
+      </div>
+
+      <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.5fr 1fr;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:34px;height:34px;background:rgba(82,0,0,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--deep-red);font-size:0.9rem;">ن</div>
+          <div><div style="font-size:0.88rem;font-weight:600;">نورة الحسين</div><div style="font-size:0.72rem;color:#999;">بلاغ بتاريخ ٩ مارس ٢٠٢٦</div></div>
+        </div>
+        <div style="font-size:0.82rem;color:#555;">noura@email.com</div>
+        <div style="font-size:0.82rem;color:#555;">٠٥٠ ١٢٣ ٤٥٦٧</div>
+        <div style="font-size:0.8rem;color:#777;">تأخر متكرر عن الموعد</div>
+        <div style="text-align:center"><button class="btn" style="background:#fce8e8;color:#c42a2a;padding:6px 14px;font-size:0.75rem;" onclick="alert('تم حظر الحساب')">حظر</button></div>
+      </div>
+
+      <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.5fr 1fr;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:34px;height:34px;background:rgba(82,0,0,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--deep-red);font-size:0.9rem;">م</div>
+          <div><div style="font-size:0.88rem;font-weight:600;">محمد العتيبي</div><div style="font-size:0.72rem;color:#999;">بلاغ بتاريخ ٨ مارس ٢٠٢٦</div></div>
+        </div>
+        <div style="font-size:0.82rem;color:#555;">mohammed@email.com</div>
+        <div style="font-size:0.82rem;color:#555;">٠٥٦ ٣٣٣ ٧٧٧٧</div>
+        <div style="font-size:0.8rem;color:#777;">إساءة استخدام الخدمة</div>
+        <div style="text-align:center"><button class="btn" style="background:#fce8e8;color:#c42a2a;padding:6px 14px;font-size:0.75rem;" onclick="alert('تم حظر الحساب')">حظر</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALL REQUESTS -->
+  <div class="section" id="sec-requests">
+    <div class="page-header">
+      <div class="page-title"><h1>طلبات المواعيد</h1><p>مراقبة جميع الطلبات في المنصة</p></div>
+    </div>
+
+    <div class="card">
+      <div class="table-header" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+        <div>العميل</div>
+        <div>الفحوصات</div>
+        <div>المختبر</div>
+        <div>التاريخ</div>
+        <div style="text-align:center">الحالة</div>
+      </div>
+
+      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+        <div><div style="font-size:0.85rem;font-weight:600;">نورة آل حسين</div></div>
+        <div style="font-size:0.8rem;color:var(--medium-brown);">فيتامين د، كالسيوم</div>
+        <div style="font-size:0.8rem;color:#555;">مختبرات وريد الطبية</div>
+        <div style="font-size:0.8rem;color:#555;">١٢ مارس</div>
+        <div style="text-align:center"><span class="status-badge status-confirmed">مؤكد</span></div>
+      </div>
+
+      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+        <div><div style="font-size:0.85rem;font-weight:600;">خالد الشمري</div></div>
+        <div style="font-size:0.8rem;color:var(--medium-brown);">فيتامين د</div>
+        <div style="font-size:0.8rem;color:#555;">مختبرات البرج</div>
+        <div style="font-size:0.8rem;color:#555;">٨ مارس</div>
+        <div style="text-align:center"><span class="status-badge status-pending">انتظار</span></div>
+      </div>
+
+      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+        <div><div style="font-size:0.85rem;font-weight:600;">عبدالله السفياني</div></div>
+        <div style="font-size:0.8rem;color:var(--medium-brown);">كالسيوم</div>
+        <div style="font-size:0.8rem;color:#555;">عيادات النهدي كير</div>
+        <div style="font-size:0.8rem;color:#555;">٧ مارس</div>
+        <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
+      </div>
+
+      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+        <div><div style="font-size:0.85rem;font-weight:600;color:#aaa;">فاطمة الزهراني</div></div>
+        <div style="font-size:0.8rem;color:#bbb;">هيموجلوبين</div>
+        <div style="font-size:0.8rem;color:#bbb;">مجموعة الدكتور سليمان الحبيب الطبية</div>
+        <div style="font-size:0.8rem;color:#bbb;">٥ مارس</div>
+        <div style="text-align:center"><span class="status-badge status-done">مكتمل</span></div>
+      </div>
+
+      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+        <div><div style="font-size:0.85rem;font-weight:600;color:#aaa;">سارة المحمد</div></div>
+        <div style="font-size:0.8rem;color:#bbb;">فيتامين ب١٢</div>
+        <div style="font-size:0.8rem;color:#bbb;">مختبرات البرج</div>
+        <div style="font-size:0.8rem;color:#bbb;">٦ مارس</div>
+        <div style="text-align:center"><span class="status-badge" style="background:#fce8e8;color:#c42a2a;">ملغي</span></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function showSection(name, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+</script>
+</body>
+</html>
