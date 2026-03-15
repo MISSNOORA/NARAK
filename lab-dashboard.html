@@ -27,22 +27,20 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     background: var(--medium-brown);
     display: flex; flex-direction: column; z-index: 100;
   }
+.sidebar-logo{
+  border-bottom:0.3px solid rgba(255,255,255,0.12);
+  line-height:1;
+}
 
-  .sidebar-logo { 
-      padding: 28px 24px 20px; 
-      border-bottom: 1px solid rgba(255,255,255,0.12); 
-  }
-  .sidebar-logo h2 { font-size: 1.6rem; 
-                    font-weight: 800; 
-                    color: #fff; 
-  }
-  .sidebar-logo p { font-size: 0.75rem; 
-                   color: rgba(255,255,255,0.5); 
-                   margin-top: 2px; 
-  }
+.logo-img{
+  width:200px;
+  height:200px;
+  display:block;
+  margin:0 auto;
+}
 
   .sidebar-user {
-    padding: 18px 24px; 
+    padding: 0.5px 0.5px; 
     display: flex; 
     align-items: center; 
     gap: 12px;
@@ -166,8 +164,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <h2>نرعاك</h2>
-    <p>لوحة المختبر</p>
+    <img src="images/1.png" alt="نرعاك" class="logo-img">
   </div>
   <div class="sidebar-user">
     <img src="images/wared.png" alt="wared-logo" class="user-avatar">
@@ -230,15 +227,15 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#faf8f5;border-radius:10px;">
             <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">سارة المحمد</div>
-              <div style="font-size:0.75rem;color:#999;">صورة دم كاملة • ١٠:٣٠ ص</div>
+              <div style="font-size:0.85rem;font-weight:600;color:#222;">يارا زقزوق </div>
+              <div style="font-size:0.75rem;color:#999;">كالسيوم  • ١٠:٣٠ ص</div>
             </div>
             <span class="status-badge status-progress">قيد التنفيذ</span>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#faf8f5;border-radius:10px;">
             <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">محمد العتيبي</div>
-              <div style="font-size:0.75rem;color:#999;">وظائف الكبد • ١١:٠٠ ص</div>
+              <div style="font-size:0.85rem;font-weight:600;color:#222;">فرح علي </div>
+              <div style="font-size:0.75rem;color:#999;"> فيتامين د • ١١:٠٠ ص</div>
             </div>
             <span class="status-badge status-pending">في الانتظار</span>
           </div>
@@ -253,8 +250,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
             <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">فاطمة الزهراني</div>
-              <div style="font-size:0.75rem;color:#999;">صورة دم كاملة • ٨ مارس</div>
+              <div style="font-size:0.85rem;font-weight:600;color:#222;">نوره ال حسين </div>
+              <div style="font-size:0.75rem;color:#999;">فيتامين د - كالسيوم- الكلسترول الكلي   • ٨ مارس</div>
             </div>
             <button class="btn btn-primary" style="padding:6px 14px;font-size:0.78rem;" onclick="showSection('results',document.querySelector('[onclick*=results]'))">رفع</button>
           </div>
@@ -267,8 +264,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
             <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">هند القحطاني</div>
-              <div style="font-size:0.75rem;color:#999;">HbA1c • ٧ مارس</div>
+              <div style="font-size:0.85rem;font-weight:600;color:#222;">عبدالله السفياني</div>
+              <div style="font-size:0.75rem;color:#999;">كالسيوم • ٧ مارس</div>
             </div>
             <button class="btn btn-primary" style="padding:6px 14px;font-size:0.78rem;" onclick="showSection('results',document.querySelector('[onclick*=results]'))">رفع</button>
           </div>
@@ -289,11 +286,11 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       </div>
 
       <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.2fr 1fr 1fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;">نورة الحسين</div><div style="font-size:0.73rem;color:#999;">٠٥٠ ١٢٣ ٤٥٦٧</div></div>
-        <div style="font-size:0.82rem;color:var(--medium-brown);">فيتامين د، HbA1c</div>
+        <div><div style="font-size:0.88rem;font-weight:600;">نورا الصيعري </div><div style="font-size:0.73rem;color:#999;">٠٥٠ ١٢٣ ٤٥٦٧</div></div>
+        <div style="font-size:0.82rem;color:var(--medium-brown);">فيتامين د، -الكلسترول الكلي</div>
         <div style="font-size:0.82rem;">١٠ مارس</div>
         <div style="font-size:0.82rem;">٩:٠٠ ص</div>
-        <div style="text-align:center"><span class="status-badge status-confirmed">مؤكد</span></div>
+        <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
         <div style="text-align:center">
           <select onchange="this.value && alert('تم تحديث الحالة إلى: '+this.options[this.selectedIndex].text)" style="font-family:Tajawal,sans-serif;font-size:0.75rem;border:1px solid #e8e0d8;border-radius:8px;padding:5px 8px;color:#555;background:#fff;cursor:pointer;width:100%;outline:none;">
             <option value="">تحديث</option>
@@ -307,8 +304,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       </div>
 
       <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.2fr 1fr 1fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;">سارة المحمد</div><div style="font-size:0.73rem;color:#999;">٠٥٥ ٩٨٧ ٦٥٤٣</div></div>
-        <div style="font-size:0.82rem;color:var(--medium-brown);">صورة دم كاملة</div>
+        <div><div style="font-size:0.88rem;font-weight:600;">يارا زقزوق </div><div style="font-size:0.73rem;color:#999;">٠٥٥ ٩٨٧ ٦٥٤٣</div></div>
+        <div style="font-size:0.82rem;color:var(--medium-brown);"> كالسيوم </div>
         <div style="font-size:0.82rem;">١٠ مارس</div>
         <div style="font-size:0.82rem;">١٠:٣٠ ص</div>
         <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
@@ -325,8 +322,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       </div>
 
       <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.2fr 1fr 1fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;">محمد العتيبي</div><div style="font-size:0.73rem;color:#999;">٠٥٦ ٣٣٣ ٧٧٧٧</div></div>
-        <div style="font-size:0.82rem;color:var(--medium-brown);">وظائف الكبد</div>
+        <div><div style="font-size:0.88rem;font-weight:600;">فرح علي </div><div style="font-size:0.73rem;color:#999;">٠٥٦ ٣٣٣ ٧٧٧٧</div></div>
+        <div style="font-size:0.82rem;color:var(--medium-brown);">فيتامين د </div>
         <div style="font-size:0.82rem;">١٠ مارس</div>
         <div style="font-size:0.82rem;">١١:٠٠ ص</div>
         <div style="text-align:center"><span class="status-badge status-pending">في الانتظار</span></div>
@@ -343,7 +340,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       </div>
 
       <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.2fr 1fr 1fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;color:#aaa;">فاطمة الزهراني</div><div style="font-size:0.73rem;color:#bbb;">٠٥٠ ٤٤٤ ٥٥٥٥</div></div>
+        <div><div style="font-size:0.88rem;font-weight:600;color:#aaa;">رانيا محمد </div><div style="font-size:0.73rem;color:#bbb;">٠٥٠ ٤٤٤ ٥٥٥٥</div></div>
         <div style="font-size:0.82rem;color:#bbb;">صورة دم كاملة</div>
         <div style="font-size:0.82rem;color:#bbb;">٨ مارس</div>
         <div style="font-size:0.82rem;color:#bbb;">٩:٠٠ ص</div>
@@ -461,21 +458,21 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:20px;">
-      <!-- Pending list -->
+      <!-- progress list -->
       <div class="card">
         <div class="card-header"><div class="card-title">طلبات تنتظر النتائج</div></div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div id="result-item-1" onclick="selectResult(1)" style="padding:12px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;cursor:pointer;border:1.5px solid transparent;">
-            <div style="font-size:0.88rem;font-weight:600;color:#222;">فاطمة الزهراني</div>
-            <div style="font-size:0.75rem;color:#999;margin-top:2px;">صورة دم كاملة • ٨ مارس ٢٠٢٦</div>
+            <div style="font-size:0.88rem;font-weight:600;color:#222;">نوره ال حسين </div>
+            <div style="font-size:0.75rem;color:#999;margin-top:2px;">فيتامين د - كالسيوم - الكلسترول الكلي   • ٨ مارس ٢٠٢٦</div>
           </div>
           <div id="result-item-2" onclick="selectResult(2)" style="padding:12px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;cursor:pointer;border:1.5px solid transparent;">
             <div style="font-size:0.88rem;font-weight:600;color:#222;">خالد الشمري</div>
             <div style="font-size:0.75rem;color:#999;margin-top:2px;">فيتامين د • ٨ مارس ٢٠٢٦</div>
           </div>
           <div id="result-item-3" onclick="selectResult(3)" style="padding:12px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;cursor:pointer;border:1.5px solid transparent;">
-            <div style="font-size:0.88rem;font-weight:600;color:#222;">هند القحطاني</div>
-            <div style="font-size:0.75rem;color:#999;margin-top:2px;">HbA1c • ٧ مارس ٢٠٢٦</div>
+            <div style="font-size:0.88rem;font-weight:600;color:#222;">عبدالله السفياني </div>
+            <div style="font-size:0.75rem;color:#999;margin-top:2px;">كالسيوم • ٧ مارس ٢٠٢٦</div>
           </div>
         </div>
       </div>
@@ -502,31 +499,44 @@ function showSection(name, el) {
 }
 
 function selectResult(id) {
-  document.querySelectorAll('[id^=result-item]').forEach(el => { el.style.border = '1.5px solid transparent'; el.style.background = '#fff8e6'; });
-  document.getElementById('result-item-'+id).style.border = '1.5px solid var(--deep-red)';
-  document.getElementById('result-item-'+id).style.background = 'rgba(82,0,0,0.04)';
+  document.querySelectorAll('[id^=result-item]').forEach(el => {
+    el.style.border = '1.5px solid transparent';
+    el.style.background = '#fff8e6';
+  });
 
-  const names = ['', 'فاطمة الزهراني', 'خالد الشمري', 'هند القحطاني'];
-  const tests = ['', 'صورة دم كاملة', 'فيتامين د', 'HbA1c'];
+  document.getElementById('result-item-' + id).style.border = '1.5px solid var(--deep-red)';
+  document.getElementById('result-item-' + id).style.background = 'rgba(82,0,0,0.04)';
+
+  const names = ['', 'نورة آل حسين', 'خالد الشمري', 'عبدالله السفياني'];
+  const tests = ['', 'فيتامين د، كالسيوم، الكوليسترول الكلي', 'فيتامين د', 'كالسيوم'];
   const fields = [
     [],
-    [['الهيموغلوبين (g/dL)', '12–16'], ['خلايا الدم البيضاء (K/μL)', '4.5–11'], ['الصفائح الدموية (K/μL)', '150–400']],
-    [['فيتامين د (nmol/L)', '50–125']],
-    [['HbA1c (%)', '< 5.7']]
+    [
+      ['فيتامين د (nmol/L)', '٥٠–١٢٥'],
+      ['الكالسيوم (mg/dL)', '٨.٦–١٠.٢'],
+      ['الكوليسترول الكلي (mg/dL)', 'أقل من ٢٠٠']
+    ],
+    [
+      ['فيتامين د (nmol/L)', '٥٠–١٢٥']
+    ],
+    [
+      ['الكالسيوم (mg/dL)', '٨.٦–١٠.٢']
+    ]
   ];
 
-  let html = `<div class="card-header"><div class="card-title">إدخال نتائج: ${names[id]}</div></div>
-  <div style="font-size:0.8rem;color:var(--medium-brown);margin-bottom:20px;">الفحص: ${tests[id]} — `;
-  html += `<span style="font-size:0.75rem;background:#e8f0fc;color:#2a5cc4;padding:3px 10px;border-radius:20px;">قيد التنفيذ</span></div>`;
+  let html = `<div class="card-header"><div class="card-title">إدخال نتائج: ${names[id]}</div></div>`;
+  html += `<div style="font-size:0.8rem;color:var(--medium-brown);margin-bottom:20px;">الفحص: ${tests[id]} — <span style="font-size:0.75rem;background:#e8f0fc;color:#2a5cc4;padding:3px 10px;border-radius:20px;">قيد التنفيذ</span></div>`;
 
   fields[id].forEach(f => {
-    html += `<div style="margin-bottom:16px;">
-      <label style="font-size:0.82rem;font-weight:600;color:#444;display:block;margin-bottom:6px;">${f[0]}</label>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <input type="number" step="0.1" placeholder="القيمة" style="flex:1;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;text-align:right;">
-        <span style="font-size:0.78rem;color:#aaa;white-space:nowrap;">النطاق: ${f[1]}</span>
+    html += `
+      <div style="margin-bottom:16px;">
+        <label style="font-size:0.82rem;font-weight:600;color:#444;display:block;margin-bottom:6px;">${f[0]}</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="number" step="0.1" placeholder="القيمة" style="flex:1;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;text-align:right;">
+          <span style="font-size:0.78rem;color:#aaa;white-space:nowrap;">النطاق: ${f[1]}</span>
+        </div>
       </div>
-    </div>`;
+    `;
   });
 
   html += `<button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="alert('تم رفع النتائج بنجاح وإرسالها للعميل')">رفع النتائج ✓</button>`;
