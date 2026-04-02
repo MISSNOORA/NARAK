@@ -1043,12 +1043,16 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
             <button class="btn btn-primary book-btn-small"
-                onclick="openBookingModal(
-                'مجموعة الدكتور سليمان الحبيب الطبية',
-                'الرياض',
-                'images/habib.png',
-                ['فيتامين د','كالسيوم','هيموجلوبين']
-                )">حجز موعد</button>
+            onclick='openBookingModal(
+            "مجموعة الدكتور سليمان الحبيب الطبية",
+            "الرياض",
+            "images/habib.png",
+            [
+              { name: "فيتامين د", price: 120, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
+              { name: "كالسيوم", price: 90, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
+              { name: "هيموجلوبين", price: 85, desc: "النطاق الطبيعي: ١٢ – ١٦ g/dL" }
+            ]
+            )'>حجز موعد</button>
           </div>
         </div>
 
@@ -1070,12 +1074,16 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
             <button class="btn btn-primary book-btn-small"
-                onclick="openBookingModal(
-                'مختبرات البرج',
-                'الرياض',
-                'images/borg.png',
-                ['فيتامين د','كالسيوم','فيتامين ب١٢']
-                )">حجز موعد</button>
+                onclick='openBookingModal(
+                "مختبرات البرج",
+                "الرياض",
+                "images/borg.png",
+                [
+                  { name: "فيتامين د", price: 110, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
+                  { name: "كالسيوم", price: 95, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
+                  { name: "فيتامين ب١٢", price: 135, desc: "النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL" }
+                ]
+                )'>حجز موعد</button>
           </div>
         </div>
 
@@ -1097,12 +1105,16 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
             <button class="btn btn-primary book-btn-small"
-                onclick="openBookingModal(
-                'عيادات النهدي كير',
-                'الرياض',
-                'images/nahdi.png',
-                ['فيتامين د','كالسيوم','الحديد']
-                )">حجز موعد</button>
+            onclick='openBookingModal(
+            "عيادات النهدي كير",
+            "الرياض",
+            "images/nahdi.png",
+            [
+              { name: "فيتامين د", price: 100, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
+              { name: "كالسيوم", price: 88, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
+              { name: "الحديد", price: 115, desc: "النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL" }
+            ]
+            )'>حجز موعد</button>
           </div>
         </div>
           
@@ -1123,13 +1135,17 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
-              <button class="btn btn-primary book-btn-small"
-                onclick="openBookingModal(
-                'مختبرات وريد الطبية',
-                'الرياض',
-                'images/wared.png',
-                ['فيتامين د','كالسيوم','الكوليسترول الكلي']
-                )">حجز موعد</button>
+            <button class="btn btn-primary book-btn-small"
+            onclick='openBookingModal(
+            "مختبرات وريد الطبية",
+            "الرياض",
+            "images/wareed.png",
+            [
+              { name: "فيتامين د", price: 115, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
+              { name: "كالسيوم", price: 92, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
+              { name: "الكوليسترول الكلي", price: 125, desc: "النطاق الطبيعي: أقل من ٢٠٠ mg/dL" }
+            ]
+            )'>حجز موعد</button>
           </div>
         </div>
       </div>
@@ -1166,6 +1182,11 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       <div class="booking-field" style="margin-bottom:14px;">
         <label>اختر التحاليل المطلوبة (من ١ إلى ٣)</label>
         <div class="booking-tests-select" id="modalTestsSelect"></div>
+      </div>
+      
+      <div id="bookingTotalBox" style="margin-top:12px;background:#faf8f5;border:1px solid #eadfd4;border-radius:12px;padding:12px 14px;">
+        <div style="font-size:0.82rem;color:#8E775E;">السعر الإجمالي</div>
+        <div id="bookingTotal" style="font-size:1rem;font-weight:800;color:var(--deep-red);margin-top:4px;">0 ريال</div>
       </div>
 
       <div class="booking-form-grid">
@@ -1566,29 +1587,26 @@ function openBookingModal(labName, city, logo, tests) {
   testsSelect.innerHTML = '';
 
   tests.forEach(test => {
-    let desc = '';
-    if (test === 'فيتامين د') desc = 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L';
-    else if (test === 'كالسيوم') desc = 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL';
-    else if (test === 'هيموجلوبين') desc = 'النطاق الطبيعي: ١٢ – ١٦ g/dL';
-    else if (test === 'فيتامين ب١٢') desc = 'النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL';
-    else if (test === 'الحديد') desc = 'النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL';
-    else if (test === 'الكوليسترول الكلي') desc = 'النطاق الطبيعي: أقل من ٢٠٠ mg/dL';
-
     testsInfo.innerHTML += `
       <div class="test-info-card">
-        <strong>${test}</strong>
-        <span>${desc}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;">
+          <strong style="margin:0;">${test.name}</strong>
+          <span style="font-size:0.78rem;font-weight:700;color:var(--deep-red);white-space:nowrap;">
+            ${test.price} ريال
+          </span>
+        </div>
+        <span>${test.desc}</span>
       </div>
     `;
 
     testsSelect.innerHTML += `
       <label class="booking-check">
-        <input type="checkbox" value="${test}" class="test-checkbox">
-        <span>${test}</span>
+        <input type="checkbox" value="${test.name}" data-price="${test.price}" class="test-checkbox" onchange="updateBookingTotal()">
+        <span>${test.name}</span>
       </label>
     `;
   });
-
+  document.getElementById('bookingTotal').textContent = '0 ريال';
   document.getElementById('bookingOverlay').style.display = 'flex';
 }
 
@@ -1596,10 +1614,23 @@ function closeBookingModal() {
   document.getElementById('bookingOverlay').style.display = 'none';
 }
 
+function updateBookingTotal() {
+  const checked = [...document.querySelectorAll('.test-checkbox:checked')];
+  let total = 0;
+
+  checked.forEach(cb => {
+    total += Number(cb.dataset.price || 0);
+  });
+
+  document.getElementById('bookingTotal').textContent = total + ' ريال';
+}
+
 function confirmBooking() {
   const checked = [...document.querySelectorAll('.test-checkbox:checked')].map(cb => cb.value);
   const date = document.getElementById('bookingDate').value;
   const time = document.getElementById('bookingTime').value;
+  const total = [...document.querySelectorAll('.test-checkbox:checked')]
+  .reduce((sum, cb) => sum + Number(cb.dataset.price || 0), 0);
 
   if (checked.length < 1 || checked.length > 3) {
     alert('اختاري من تحليل واحد إلى ثلاثة تحاليل');
@@ -1616,12 +1647,13 @@ function confirmBooking() {
     return;
   }
 
-  const confirmText = `
-    المختبر: ${selectedLabName}<br>
-    التحاليل: ${checked.join('، ')}<br>
-    التاريخ: ${date}<br>
-    الوقت: ${time}
-  `;
+const confirmText = `
+  المختبر: ${selectedLabName}<br>
+  التحاليل: ${checked.join('، ')}<br>
+  التاريخ: ${date}<br>
+  الوقت: ${time}<br>
+  السعر الإجمالي: ${total} ريال
+`;
 
   document.getElementById('confirmText').innerHTML = confirmText;
   document.getElementById('confirmBox').style.display = 'block';
