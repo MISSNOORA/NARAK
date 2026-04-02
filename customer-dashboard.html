@@ -409,8 +409,357 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     justify-content: center;
     font-size: 1.2rem;
     flex-shrink: 0;}
+.booking-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.35);
+  z-index:999;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
 
+.booking-modal{
+  width:760px;
+  max-width:95%;
+  max-height:90vh;
+  overflow-y:auto;
+  background:#fff;
+  border-radius:22px;
+  box-shadow:0 25px 80px rgba(0,0,0,0.18);
+  padding:28px;
+  position:relative;
+}
 
+.booking-close{
+  position:absolute;
+  top:16px;
+  left:16px;
+  width:38px;
+  height:38px;
+  border:none;
+  border-radius:10px;
+  background:#f5f0e8;
+  color:#555;
+  font-size:1.1rem;
+  cursor:pointer;
+}
+
+.booking-title{
+  font-size:1.4rem;
+  font-weight:800;
+  color:var(--deep-red);
+  margin-bottom:6px;
+}
+
+.booking-subtitle{
+  font-size:0.86rem;
+  color:#8E775E;
+  margin-bottom:22px;
+}
+
+.booking-section{
+  background:#faf8f5;
+  border:1px solid #f0e8df;
+  border-radius:16px;
+  padding:18px;
+  margin-bottom:16px;
+}
+
+.booking-section h3{
+  font-size:1rem;
+  font-weight:700;
+  color:#222;
+  margin-bottom:12px;
+}
+
+.booking-lab-top{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.booking-lab-logo{
+  width:58px;
+  height:58px;
+  border-radius:14px;
+  background:#f1e8df;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  flex-shrink:0;
+}
+
+.booking-lab-logo img{
+  width:38px;
+  height:38px;
+  object-fit:contain;
+}
+
+.booking-lab-name{
+  font-size:1rem;
+  font-weight:700;
+  color:#222;
+}
+
+.booking-lab-meta{
+  font-size:0.82rem;
+  color:#999;
+  margin-top:4px;
+}
+
+.booking-home{
+  margin-top:10px;
+  font-size:0.82rem;
+  color:#2d7a3a;
+  font-weight:700;
+}
+
+.booking-tests-info{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.test-info-card{
+  background:#fff;
+  border:1px solid #eee4d9;
+  border-radius:12px;
+  padding:12px;
+}
+
+.test-info-card strong{
+  display:block;
+  font-size:0.88rem;
+  color:#222;
+  margin-bottom:4px;
+}
+
+.test-info-card span{
+  font-size:0.76rem;
+  color:#888;
+  line-height:1.5;
+}
+
+.booking-form-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+.booking-field label{
+  display:block;
+  font-size:0.82rem;
+  font-weight:700;
+  color:#444;
+  margin-bottom:6px;
+}
+
+.booking-field input,
+.booking-field select{
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid #e8e0d8;
+  border-radius:10px;
+  font-family:'Tajawal', sans-serif;
+  font-size:0.9rem;
+  background:#fff;
+  outline:none;
+}
+
+.booking-field input:focus,
+.booking-field select:focus{
+  border-color:var(--deep-red);
+}
+
+.booking-tests-select{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.booking-check{
+  background:#fff;
+  border:1px solid #eadfd4;
+  border-radius:10px;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:0.85rem;
+}
+
+.booking-check input{
+  accent-color:#520000;
+}
+
+.booking-actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-start;
+  margin-top:18px;
+}
+
+.booking-btn-cancel{
+  padding:12px 18px;
+  border:none;
+  border-radius:10px;
+  background:#f1f1f1;
+  color:#555;
+  font-family:'Tajawal', sans-serif;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.booking-btn-confirm{
+  padding:12px 18px;
+  border:none;
+  border-radius:10px;
+  background:var(--deep-red);
+  color:#fff;
+  font-family:'Tajawal', sans-serif;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.confirm-box{
+  display:none;
+  margin-top:18px;
+  background:#e8f4ea;
+  border-right:4px solid #2d7a3a;
+  border-radius:12px;
+  padding:14px 16px;
+}
+
+.confirm-box strong{
+  display:block;
+  color:#2d7a3a;
+  margin-bottom:6px;
+  font-size:0.92rem;
+}
+
+.confirm-box p{
+  font-size:0.82rem;
+  color:#4f5b52;
+  line-height:1.8;
+}
+
+@media (max-width: 700px){
+  .booking-tests-info,
+  .booking-form-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.past-appointments-list{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.past-appointment-item{
+  border:1px solid #efe6dc;
+  border-radius:16px;
+  overflow:hidden;
+  background:#faf8f5;
+}
+
+.past-appointment-header{
+  width:100%;
+  background:#faf8f5;
+  border:none;
+  padding:18px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  cursor:pointer;
+  font-family:'Tajawal', sans-serif;
+  text-align:right;
+}
+
+.past-appointment-main{
+  flex:1;
+}
+
+.past-appointment-title{
+  font-size:1rem;
+  font-weight:700;
+  color:#222;
+  margin-bottom:8px;
+}
+
+.past-appointment-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  font-size:0.8rem;
+  color:#8E775E;
+}
+
+.past-arrow{
+  font-size:1.1rem;
+  color:var(--deep-red);
+  transition:transform 0.25s ease;
+  flex-shrink:0;
+}
+
+.past-appointment-item.open .past-arrow{
+  transform:rotate(180deg);
+}
+
+.past-appointment-body{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height 0.3s ease, padding 0.3s ease;
+  background:#fff;
+  padding:0 20px;
+}
+
+.past-appointment-item.open .past-appointment-body{
+  max-height:400px;
+  padding:18px 20px 20px;
+  border-top:1px solid #f0ebe4;
+}
+
+.past-results-grid{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:12px;
+}
+
+.past-result-card{
+  background:#f9f6f2;
+  border:1px solid #eee6dd;
+  border-radius:12px;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.past-result-card strong{
+  font-size:0.9rem;
+  color:#222;
+}
+
+.past-result-card span{
+  font-size:0.8rem;
+  color:#777;
+}
+
+@media (max-width: 700px){
+  .past-results-grid{
+    grid-template-columns:1fr;
+  }
+
+  .past-appointment-meta{
+    flex-direction:column;
+    gap:6px;
+  }
+}
   /* RESULTS CARD */
   .results-card {
     grid-column: 1 / -1;
@@ -667,6 +1016,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
         </div>
     </div>
+      
       <!-- Available Labs -->
       <div class="card">
         <div class="card-header">
@@ -692,7 +1042,13 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small">حجز موعد</button>
+            <button class="btn btn-primary book-btn-small"
+                onclick="openBookingModal(
+                'مجموعة الدكتور سليمان الحبيب الطبية',
+                'الرياض',
+                'images/habib.png',
+                ['فيتامين د','كالسيوم','هيموجلوبين']
+                )">حجز موعد</button>
           </div>
         </div>
 
@@ -713,7 +1069,13 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small">حجز موعد</button>
+            <button class="btn btn-primary book-btn-small"
+                onclick="openBookingModal(
+                'مختبرات البرج',
+                'الرياض',
+                'images/borg.png',
+                ['فيتامين د','كالسيوم','فيتامين ب١٢']
+                )">حجز موعد</button>
           </div>
         </div>
 
@@ -734,7 +1096,13 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small">حجز موعد</button>
+            <button class="btn btn-primary book-btn-small"
+                onclick="openBookingModal(
+                'عيادات النهدي كير',
+                'الرياض',
+                'images/nahdi.png',
+                ['فيتامين د','كالسيوم','الحديد']
+                )">حجز موعد</button>
           </div>
         </div>
           
@@ -755,18 +1123,192 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
           <div class="lab-bottom">
             <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small">حجز موعد</button>
+              <button class="btn btn-primary book-btn-small"
+                onclick="openBookingModal(
+                'مختبرات وريد الطبية',
+                'الرياض',
+                'images/wared.png',
+                ['فيتامين د','كالسيوم','الكوليسترول الكلي']
+                )">حجز موعد</button>
           </div>
         </div>
       </div>
+      
+  <div class="booking-overlay" id="bookingOverlay">
+  <div class="booking-modal">
+    <button class="booking-close" onclick="closeBookingModal()">✕</button>
 
+    <div class="booking-title">حجز موعد جديد</div>
+    <div class="booking-subtitle">اختر التحاليل المناسبة وحدد التاريخ والوقت لتأكيد الموعد</div>
+
+    <div class="booking-section">
+      <h3>معلومات المختبر</h3>
+      <div class="booking-lab-top">
+        <div class="booking-lab-logo">
+          <img id="modalLabLogo" src="" alt="lab logo">
+        </div>
+        <div>
+          <div class="booking-lab-name" id="modalLabName">—</div>
+          <div class="booking-lab-meta" id="modalLabCity">—</div>
+          <div class="booking-home" id="modalLabHome">✓ زيارة منزلية</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="booking-section">
+      <h3>التحاليل التي يوفرها المختبر</h3>
+      <div class="booking-tests-info" id="modalTestsInfo"></div>
+    </div>
+
+    <div class="booking-section">
+      <h3>بيانات الحجز</h3>
+
+      <div class="booking-field" style="margin-bottom:14px;">
+        <label>اختر التحاليل المطلوبة (من ١ إلى ٣)</label>
+        <div class="booking-tests-select" id="modalTestsSelect"></div>
+      </div>
+
+      <div class="booking-form-grid">
+        <div class="booking-field">
+          <label>اختر اليوم</label>
+          <input type="date" id="bookingDate">
+        </div>
+
+        <div class="booking-field">
+          <label>اختر الوقت</label>
+          <select id="bookingTime">
+            <option value="">اختر الوقت</option>
+            <option>٨:٠٠ ص</option>
+            <option>٩:٠٠ ص</option>
+            <option>١٠:٠٠ ص</option>
+            <option>١١:٠٠ ص</option>
+            <option>١٢:٠٠ م</option>
+            <option>١:٠٠ م</option>
+            <option>٢:٠٠ م</option>
+            <option>٣:٠٠ م</option>
+            <option>٤:٠٠ م</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="booking-actions">
+        <button class="booking-btn-cancel" onclick="closeBookingModal()">رجوع</button>
+        <button class="booking-btn-confirm" onclick="confirmBooking()">تأكيد الحجز</button>
+      </div>
+
+      <div class="confirm-box" id="confirmBox">
+        <strong>تم تأكيد الحجز بنجاح ✓</strong>
+        <p id="confirmText"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+      <!-- Previous Appointments -->
+<div class="card results-card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">المواعيد السابقة</div>
+    </div>
+  </div>
+
+  <div class="past-appointments-list">
+
+    <!-- appointment 1 -->
+    <div class="past-appointment-item">
+      <button class="past-appointment-header" onclick="togglePastAppointment(this)">
+        <div class="past-appointment-main">
+          <div class="past-appointment-title">مختبرات وريد الطبية</div>
+          <div class="past-appointment-meta">
+            <span>التاريخ: ٨ مارس ٢٠٢٦</span>
+            <span>الوقت: ٩:٠٠ ص</span>
+            <span>التحاليل: فيتامين د، الكوليسترول الكلي</span>
+          </div>
+        </div>
+        <span class="past-arrow">⌃</span>
+      </button>
+
+      <div class="past-appointment-body">
+        <div class="past-results-grid">
+          <div class="past-result-card">
+            <strong>فيتامين د</strong>
+            <span>النتيجة: ١٨ nmol/L</span>
+            <span>الحالة: منخفض</span>
+          </div>
+
+          <div class="past-result-card">
+            <strong>الكوليسترول الكلي</strong>
+            <span>النتيجة: ٢١٥ mg/dL</span>
+            <span>الحالة: مرتفع</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- appointment 2 -->
+    <div class="past-appointment-item">
+      <button class="past-appointment-header" onclick="togglePastAppointment(this)">
+        <div class="past-appointment-main">
+          <div class="past-appointment-title">مختبرات البرج</div>
+          <div class="past-appointment-meta">
+            <span>التاريخ: ٥ مارس ٢٠٢٦</span>
+            <span>الوقت: ٨:٣٠ ص</span>
+            <span>التحاليل: فيتامين ب١٢</span>
+          </div>
+        </div>
+        <span class="past-arrow">⌃</span>
+      </button>
+
+      <div class="past-appointment-body">
+        <div class="past-results-grid">
+          <div class="past-result-card">
+            <strong>فيتامين ب١٢</strong>
+            <span>النتيجة: ٣٢٠ pg/mL</span>
+            <span>الحالة: طبيعي</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- appointment 3 -->
+    <div class="past-appointment-item">
+      <button class="past-appointment-header" onclick="togglePastAppointment(this)">
+        <div class="past-appointment-main">
+          <div class="past-appointment-title">عيادات النهدي كير</div>
+          <div class="past-appointment-meta">
+            <span>التاريخ: ١ مارس ٢٠٢٦</span>
+            <span>الوقت: ١٠:٠٠ ص</span>
+            <span>التحاليل: فيتامين د، الحديد</span>
+          </div>
+        </div>
+        <span class="past-arrow">⌃</span>
+      </button>
+
+      <div class="past-appointment-body">
+        <div class="past-results-grid">
+          <div class="past-result-card">
+            <strong>فيتامين د</strong>
+            <span>النتيجة: ١٦ nmol/L</span>
+            <span>الحالة: منخفض</span>
+          </div>
+
+          <div class="past-result-card">
+            <strong>الحديد</strong>
+            <span>النتيجة: ٥٥ µg/dL</span>
+            <span>الحالة: منخفض</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
       
   <!-- Latest Results -->
 <div class="card results-card">
   <div class="card-header">
     <div>
-      <div class="card-title">آخر نتائج الفحوصات</div>
-      <div class="card-subtitle">مع الحالة والاتجاه وإمكانية المقارنة</div>
+      <div class="card-title"> نتائج الفحوصات</div>
     </div>
   </div>
 
@@ -875,7 +1417,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     </div>
   </div>
 
-  <!-- Comparison Box Inside Home -->
+  <!-- Comparison -->
   <div id="comparison-box" style="display:none;margin-top:24px;padding-top:20px;border-top:1px solid #f0ebe4;">
     <div class="card-header" style="margin-bottom:16px;">
       <div class="card-title" id="comparison-title">فيتامين د — تطور النتائج</div>
@@ -908,58 +1450,63 @@ const comparisonData = {
     range: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L',
     note: 'مستوى فيتامين د لا يزال منخفضًا عن النطاق الطبيعي. يُنصح بالاستمرار في الجرعات الموصوفة وإعادة الفحص بعد شهرين.',
     bars: [
-      { label: 'ديسمبر ٢٠٢٥', value: '١٢ nmol/L', width: '10%', color: '#7e3b3b' },
-      { label: 'فبراير ٢٠٢٦', value: '١٨ nmol/L', width: '16%', color: '#bfa27a' },
+      { label: '٨ ديسمبر ٢٠٢٥', value: '١٢ nmol/L', width: '10%', color: '#7e3b3b' },
+      { label: '٨ فبراير ٢٠٢٦', value: '١٨ nmol/L', width: '16%', color: '#bfa27a' },
       { label: 'المستهدف', value: '+٥٠ nmol/L', width: '50%', color: '#97b494' }
     ]
   },
+
   calcium: {
     title: 'الكالسيوم — تطور النتائج',
     range: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL',
     note: 'نتيجة الكالسيوم ضمن النطاق الطبيعي مع تحسن بسيط عن القراءة السابقة.',
     bars: [
-      { label: 'يناير ٢٠٢٦', value: '٨.٨ mg/dL', width: '62%', color: '#bfa27a' },
-      { label: 'مارس ٢٠٢٦', value: '٩.١ mg/dL', width: '65%', color: '#2d7a3a' },
+      { label: '٨ يناير ٢٠٢٦', value: '٨.٨ mg/dL', width: '62%', color: '#bfa27a' },
+      { label: '٨ مارس ٢٠٢٦', value: '٩.١ mg/dL', width: '65%', color: '#2d7a3a' },
       { label: 'النطاق الطبيعي', value: '٨.٦–١٠.٢', width: '72%', color: '#97b494' }
     ]
   },
+
   hb: {
     title: 'الهيموجلوبين — تطور النتائج',
     range: 'النطاق الطبيعي: ١٢ – ١٦ g/dL',
     note: 'النتيجة مستقرة وضمن النطاق الطبيعي.',
     bars: [
-      { label: 'فبراير ٢٠٢٦', value: '١٣.٠ g/dL', width: '65%', color: '#bfa27a' },
-      { label: 'مارس ٢٠٢٦', value: '١٣.٢ g/dL', width: '66%', color: '#2d7a3a' },
+      { label: '٥ فبراير ٢٠٢٦', value: '١٣.٠ g/dL', width: '65%', color: '#bfa27a' },
+      { label: '٥ مارس ٢٠٢٦', value: '١٣.٢ g/dL', width: '66%', color: '#2d7a3a' },
       { label: 'النطاق المستهدف', value: '١٢–١٦', width: '80%', color: '#97b494' }
     ]
   },
+
   b12: {
     title: 'فيتامين ب١٢ — تطور النتائج',
     range: 'النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL',
     note: 'النتيجة الحالية ضمن الطبيعي مع تحسن ملحوظ عن القراءة السابقة.',
     bars: [
-      { label: 'يناير ٢٠٢٦', value: '٢٩٠ pg/mL', width: '32%', color: '#bfa27a' },
-      { label: 'مارس ٢٠٢٦', value: '٣٢٠ pg/mL', width: '36%', color: '#2d7a3a' },
+      { label: '١٠ يناير ٢٠٢٦', value: '٢٩٠ pg/mL', width: '32%', color: '#bfa27a' },
+      { label: '١٠ مارس ٢٠٢٦', value: '٣٢٠ pg/mL', width: '36%', color: '#2d7a3a' },
       { label: 'النطاق الطبيعي', value: '٢٠٠–٩٠٠', width: '75%', color: '#97b494' }
     ]
   },
+
   iron: {
     title: 'الحديد — تطور النتائج',
     range: 'النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL',
     note: 'مستوى الحديد أقل من الطبيعي حاليًا، ويحتاج متابعة غذائية أو علاجية حسب توصية الطبيب.',
     bars: [
-      { label: 'يناير ٢٠٢٦', value: '٦٢ µg/dL', width: '36%', color: '#bfa27a' },
-      { label: 'مارس ٢٠٢٦', value: '٥٥ µg/dL', width: '32%', color: '#c8860a' },
+      { label: '١ مارس ٢٠٢٦', value: '٦٢ µg/dL', width: '36%', color: '#bfa27a' },
+      { label: '١٧ مارس ٢٠٢٦', value: '٥٥ µg/dL', width: '32%', color: '#c8860a' },
       { label: 'النطاق الطبيعي', value: '٦٠–١٧٠', width: '68%', color: '#97b494' }
     ]
   },
+
   chol: {
     title: 'الكوليسترول الكلي — تطور النتائج',
     range: 'النطاق الطبيعي: أقل من ٢٠٠ mg/dL',
     note: 'النتيجة الحالية أعلى من الطبيعي، ويُنصح بتحسين نمط الحياة وإعادة الفحص لاحقًا.',
     bars: [
-      { label: 'يناير ٢٠٢٦', value: '١٩٨ mg/dL', width: '66%', color: '#bfa27a' },
-      { label: 'مارس ٢٠٢٦', value: '٢١٥ mg/dL', width: '72%', color: '#c42a2a' },
+      { label: '١ يناير ٢٠٢٦', value: '١٩٨ mg/dL', width: '66%', color: '#bfa27a' },
+      { label: '١ مارس ٢٠٢٦', value: '٢١٥ mg/dL', width: '72%', color: '#c42a2a' },
       { label: 'الحد الأعلى الطبيعي', value: '٢٠٠ mg/dL', width: '67%', color: '#97b494' }
     ]
   }
@@ -990,8 +1537,96 @@ function openComparison(key) {
 
   const box = document.getElementById('comparison-box');
   box.style.display = 'block';
-  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });}
+  
+  function togglePastAppointment(button) {
+  const item = button.parentElement;
+  item.classList.toggle('open');
 }
+  
+let selectedLabName = '';
+let selectedLabTests = [];
+
+function openBookingModal(labName, city, logo, tests) {
+  selectedLabName = labName;
+  selectedLabTests = tests;
+
+  document.getElementById('modalLabName').textContent = labName;
+  document.getElementById('modalLabCity').textContent = city;
+  document.getElementById('modalLabLogo').src = logo;
+
+  document.getElementById('bookingDate').value = '';
+  document.getElementById('bookingTime').value = '';
+  document.getElementById('confirmBox').style.display = 'none';
+
+  const testsInfo = document.getElementById('modalTestsInfo');
+  const testsSelect = document.getElementById('modalTestsSelect');
+
+  testsInfo.innerHTML = '';
+  testsSelect.innerHTML = '';
+
+  tests.forEach(test => {
+    let desc = '';
+    if (test === 'فيتامين د') desc = 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L';
+    else if (test === 'كالسيوم') desc = 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL';
+    else if (test === 'هيموجلوبين') desc = 'النطاق الطبيعي: ١٢ – ١٦ g/dL';
+    else if (test === 'فيتامين ب١٢') desc = 'النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL';
+    else if (test === 'الحديد') desc = 'النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL';
+    else if (test === 'الكوليسترول الكلي') desc = 'النطاق الطبيعي: أقل من ٢٠٠ mg/dL';
+
+    testsInfo.innerHTML += `
+      <div class="test-info-card">
+        <strong>${test}</strong>
+        <span>${desc}</span>
+      </div>
+    `;
+
+    testsSelect.innerHTML += `
+      <label class="booking-check">
+        <input type="checkbox" value="${test}" class="test-checkbox">
+        <span>${test}</span>
+      </label>
+    `;
+  });
+
+  document.getElementById('bookingOverlay').style.display = 'flex';
+}
+
+function closeBookingModal() {
+  document.getElementById('bookingOverlay').style.display = 'none';
+}
+
+function confirmBooking() {
+  const checked = [...document.querySelectorAll('.test-checkbox:checked')].map(cb => cb.value);
+  const date = document.getElementById('bookingDate').value;
+  const time = document.getElementById('bookingTime').value;
+
+  if (checked.length < 1 || checked.length > 3) {
+    alert('اختاري من تحليل واحد إلى ثلاثة تحاليل');
+    return;
+  }
+
+  if (!date) {
+    alert('اختاري اليوم أولاً');
+    return;
+  }
+
+  if (!time) {
+    alert('اختاري الوقت أولاً');
+    return;
+  }
+
+  const confirmText = `
+    المختبر: ${selectedLabName}<br>
+    التحاليل: ${checked.join('، ')}<br>
+    التاريخ: ${date}<br>
+    الوقت: ${time}
+  `;
+
+  document.getElementById('confirmText').innerHTML = confirmText;
+  document.getElementById('confirmBox').style.display = 'block';
+}
+
 </script>
 </body>
 </html>
