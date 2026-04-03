@@ -874,33 +874,31 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 }
 
   /* SEARCH BAR */
-  .search-bar {
-    position: relative;
-    margin-bottom: 24px;
-  }
+    .labs-search-box{
+      margin-bottom:16px;
+    }
 
-  .search-input {
-    width: 100%;
-    padding: 12px 16px 12px 44px;
-    border: 1.5px solid #e8e0d8;
-    border-radius: 12px;
-    font-family: 'Tajawal', sans-serif;
-    font-size: 0.9rem;
-    background: #fff;
-    outline: none;
-    transition: border-color 0.2s;
-  }
+    .labs-search-input{
+      width:100%;
+      padding:12px 14px;
+      border:1.5px solid #e8e0d8;
+      border-radius:12px;
+      font-family:'Tajawal', sans-serif;
+      font-size:0.9rem;
+      background:#fff;
+      outline:none;
+      transition:all 0.2s;
+    }
 
-  .search-input:focus { border-color: var(--deep-red); }
+    .labs-search-input:focus{
+      border-color:var(--deep-red);
+      box-shadow:0 0 0 3px rgba(82,0,0,0.06);
+    }
 
-  .search-icon {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 1rem;
-    color: #bbb;
-  }
+    .test-pill.highlighted{
+      background:var(--deep-red);
+      color:#fff;
+    }
 
   /* Content sections */
   .section { display: none; }
@@ -968,50 +966,50 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
         </div>
 
-       <div class="appointment-item appointment-item-actions">
+        <div class="appointment-item appointment-item-actions"
+            data-lab="مختبرات البرج"
+            data-tests="فيتامين ب١٢"
+            data-date="2026-03-17"
+            data-time="10:00">
+            
+          <div class="appt-info">
+            <h4>فيتامين ب١٢ </h4>
+            <div class="lab-name">مختبرات البرج</div>
+            <p>الثلاثاء، ١٧ مارس — ١٠:٠٠ ص</p>
+          </div>
+
+          <div class="appointment-side">
+            <span class="status-badge status-pending">في الانتظار</span>
+            <div class="appointment-actions">
+              <button class="appt-action-btn" onclick="openEditModal(this)">تعديل</button>
+              <button class="appt-action-btn danger">إلغاء</button>
+            </div>
+          </div>
+        </div>
+               <div class="appointment-item appointment-item-actions">
         <div class="appt-info">
           <h4>فيتامين د — الكوليسترول الكلي</h4>
           <div class="lab-name">مختبر الوريد الطبيه </div>
-          <p>الخميس، ١٢ مارس — ٩:٠٠ ص</p>
+          <p>الأحد، ١٥ مارس — ٨:٣٠ ص</p>
         </div>
 
         <div class="appointment-side">
           <span class="status-badge status-progress">قيد التنفيذ</span>
           <div class="appointment-actions">
-            <button class="appt-action-btn">تعديل</button>
-            <button class="appt-action-btn danger">إلغاء</button>
           </div>
         </div>
       </div>
 
         <div class="appointment-item appointment-item-actions">
           <div class="appt-info">
-            <h4>فيتامين ب١٢ </h4>
-            <div class="lab-name">مختبرات البرج</div>
-            <p>الأحد، ١٥ مارس — ٨:٣٠ ص</p>
-          </div>
-
-          <div class="appointment-side">
-            <span class="status-badge status-pending">في الانتظار</span>
-            <div class="appointment-actions">
-              <button class="appt-action-btn">تعديل</button>
-              <button class="appt-action-btn danger">إلغاء</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="appointment-item appointment-item-actions">
-          <div class="appt-info">
             <h4>فيتامين د — الحديد</h4>
             <div class="lab-name">عيادات النهدي كير</div>
-            <p>الثلاثاء، ١٧ مارس — ١٠:٠٠ ص</p>
+            <p>الخميس، ١٢ مارس — ٩:٠٠ ص</p>
           </div>
 
           <div class="appointment-side">
             <span class="status-badge status-confirmed">مكتمل</span>
             <div class="appointment-actions">
-              <button class="appt-action-btn">تعديل</button>
-              <button class="appt-action-btn danger">إلغاء</button>
             </div>
           </div>
         </div>
@@ -1025,7 +1023,12 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
             <div class="card-subtitle">في الرياض</div>
           </div>
         </div>
-        <div class="lab-card-clean">
+        <div class="labs-search-box">
+           <input type="text" id="labTestSearch" class="labs-search-input" placeholder="ابحث عن فحص مثل: فيتامين د" oninput="filterLabsByTest()">
+        </div>
+          
+        <div id="labsListContainer" style="display:flex;flex-direction:column;gap:12px;">
+                    <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,هيموجلوبين">
           <div class="lab-top">
             <img src="images/habib.png" alt="habib-logo" class="lab-avatar">
             <div class="lab-meta">
@@ -1056,7 +1059,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
         </div>
 
-        <div class="lab-card-clean">
+        <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,فيتامين ب١٢">
           <div class="lab-top">
             <img src="images/borg.png" alt="borg-logo" class="lab-avatar">
             <div class="lab-meta">
@@ -1087,7 +1090,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
         </div>
 
-        <div class="lab-card-clean">
+        <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,الحديد">
           <div class="lab-top">
             <img src="images/nahdi.png" alt="nahdi-logo" class="lab-avatar">
             <div class="lab-meta">
@@ -1118,7 +1121,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
         </div>
           
-        <div class="lab-card-clean">
+        <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,الكوليسترول الكلي">
           <div class="lab-top">
             <img src="images/wared.png" alt="wared-logo" class="lab-avatar">
             <div class="lab-meta">
@@ -1139,7 +1142,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
             onclick='openBookingModal(
             "مختبرات وريد الطبية",
             "الرياض",
-            "images/wareed.png",
+            "images/wared.png",
             [
               { name: "فيتامين د", price: 115, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
               { name: "كالسيوم", price: 92, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
@@ -1147,6 +1150,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
             ]
             )'>حجز موعد</button>
           </div>
+        </div>
         </div>
       </div>
       
@@ -1244,6 +1248,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
             <span>التاريخ: ٨ مارس ٢٠٢٦</span>
             <span>الوقت: ٩:٠٠ ص</span>
             <span>التحاليل: فيتامين د، الكوليسترول الكلي</span>
+            <span>السعر : 240</span>
           </div>
         </div>
         <span class="past-arrow">⌃</span>
@@ -1275,6 +1280,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
             <span>التاريخ: ٥ مارس ٢٠٢٦</span>
             <span>الوقت: ٨:٣٠ ص</span>
             <span>التحاليل: فيتامين ب١٢</span>
+            <span>السعر : 135</span>
           </div>
         </div>
         <span class="past-arrow">⌃</span>
@@ -1300,6 +1306,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
             <span>التاريخ: ١ مارس ٢٠٢٦</span>
             <span>الوقت: ١٠:٠٠ ص</span>
             <span>التحاليل: فيتامين د، الحديد</span>
+            <span>السعر : 215</span>
           </div>
         </div>
         <span class="past-arrow">⌃</span>
@@ -1657,8 +1664,110 @@ const confirmText = `
 
   document.getElementById('confirmText').innerHTML = confirmText;
   document.getElementById('confirmBox').style.display = 'block';
+  
+  if (editingItem) {
+  editingItem.dataset.tests = checked.join(',');
+  editingItem.dataset.date = date;
+  editingItem.dataset.time = time;
+
+  const testsElement = editingItem.querySelector('.appointment-tests');
+  const dateElement = editingItem.querySelector('.appointment-date');
+
+  if (testsElement) {
+    testsElement.textContent = checked.join(' — ');
+  }
+
+  if (dateElement) {
+    dateElement.textContent = `${date} — ${time}`;
+  }
+
+  editingItem = null;
+}
+}
+let editingItem = null;
+
+function getLabTests(labName) {
+  const labsData = {
+    'مجموعة الدكتور سليمان الحبيب الطبية': [
+      { name: 'فيتامين د', price: 120, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
+      { name: 'كالسيوم', price: 90, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
+      { name: 'هيموجلوبين', price: 85, desc: 'النطاق الطبيعي: ١٢ – ١٦ g/dL' }
+    ],
+    'مختبرات البرج': [
+      { name: 'فيتامين د', price: 110, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
+      { name: 'كالسيوم', price: 95, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
+      { name: 'فيتامين ب١٢', price: 135, desc: 'النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL' }
+    ],
+    'عيادات النهدي كير': [
+      { name: 'فيتامين د', price: 100, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
+      { name: 'كالسيوم', price: 88, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
+      { name: 'الحديد', price: 115, desc: 'النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL' }
+    ],
+    'مختبرات وريد الطبية': [
+      { name: 'فيتامين د', price: 115, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
+      { name: 'كالسيوم', price: 92, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
+      { name: 'الكوليسترول الكلي', price: 125, desc: 'النطاق الطبيعي: أقل من ٢٠٠ mg/dL' }
+    ]
+  };
+
+  return labsData[labName] || [];
 }
 
+function openEditModal(btn) {
+  const item = btn.closest('.appointment-item');
+  editingItem = item;
+
+  const lab = item.dataset.lab;
+  const tests = item.dataset.tests.split(',').map(t => t.trim());
+  const date = item.dataset.date;
+  const time = item.dataset.time;
+
+  openBookingModal(
+    lab,
+    'الرياض',
+    '',
+    getLabTests(lab)
+  );
+
+  setTimeout(() => {
+    document.getElementById('bookingDate').value = date;
+    document.getElementById('bookingTime').value = time;
+
+    const checkboxes = document.querySelectorAll('.test-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = tests.includes(cb.value);
+    });
+
+    updateBookingTotal();
+  }, 100);
+}
+
+function filterLabsByTest() {
+  const searchInput = document.getElementById('labTestSearch');
+  const query = searchInput.value.trim().toLowerCase();
+  const labs = [...document.querySelectorAll('.lab-item-searchable')];
+
+  labs.forEach(lab => {
+    const tests = lab.dataset.tests.toLowerCase();
+    const pills = lab.querySelectorAll('.test-pill');
+
+    pills.forEach(pill => pill.classList.remove('highlighted'));
+
+    if (query === '') {
+      lab.style.order = '0';
+    } else if (tests.includes(query)) {
+      lab.style.order = '-1';
+
+      pills.forEach(pill => {
+        if (pill.textContent.trim().toLowerCase().includes(query)) {
+          pill.classList.add('highlighted');
+        }
+      });
+    } else {
+      lab.style.order = '1';
+    }
+  });
+}
 </script>
 </body>
 </html>
