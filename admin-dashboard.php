@@ -113,6 +113,46 @@
   .table-header, .table-row {
     display: grid; gap: 8px; padding: 10px 0; align-items: center;
   }
+
+.appointment-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.lab-actions {
+  position: absolute;
+  left: 14px; 
+  top: 50%;
+  transform: translateY(-50%); 
+}
+.lab-action-btn {
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #e8e0d8;
+  background: #fff;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lab-action-btn:hover {
+  border-color: var(--deep-red);
+  color: var(--deep-red);
+}
+
+.lab-action-btn.delete {
+  border-color: #f3d3d3;
+  color: #c42a2a;
+}
+
+.lab-action-btn.delete:hover {
+  background: #fff5f5;
+  border-color: #e7bcbc;
+}
   .table-header { font-size: 0.72rem; font-weight: 700; color: #aaa; letter-spacing: 0.5px; border-bottom: 2px solid #f0ebe4; padding-bottom: 10px; }
   .table-row { border-bottom: 1px solid #f0ebe4; padding: 12px 0; }
   .table-row:last-child { border-bottom: none; }
@@ -141,6 +181,7 @@
     background: #faf8f5;
     border-radius: 12px;
     border: 1px solid #f0ebe4;
+    position: relative;
   }
 
   .lab-logo-box {
@@ -161,7 +202,10 @@
     object-fit: contain;
     display: block;
   }
-
+.lab-details {
+  flex: 1; /* Makes the text area take up the remaining space */
+  padding-left: 60px; /* Creates an invisible wall so text doesn't hit the button */
+}
   .lab-details strong {
     display: block;
     font-size: 0.88rem;
@@ -275,6 +319,9 @@
                 <strong>مجموعة الدكتور سليمان الحبيب الطبية</strong>
                 <span>الرياض</span>
                 <div class="lab-tests-line">فيتامين د، كالسيوم، هيموجلوبين</div>
+                <div class="lab-actions">
+                  <button class="lab-action-btn delete">حذف</button>
+                </div>
               </div>
             </div>
 
@@ -284,6 +331,9 @@
                 <strong>مختبرات البرج</strong>
                 <span>الرياض</span>
                 <div class="lab-tests-line">فيتامين د، كالسيوم، فيتامين ب١٢</div>
+                <div class="lab-actions">
+                  <button class="lab-action-btn delete">حذف</button>
+                </div>
               </div>
             </div>
 
@@ -293,6 +343,9 @@
                 <strong>عيادات النهدي كير</strong>
                 <span>الرياض</span>
                 <div class="lab-tests-line">فيتامين د، كالسيوم، الحديد</div>
+                <div class="lab-actions">
+                  <button class="lab-action-btn delete">حذف</button>
+                </div>
               </div>
             </div>
 
@@ -302,6 +355,9 @@
                 <strong>مختبرات وريد الطبية</strong>
                 <span>الرياض</span>
                 <div class="lab-tests-line">فيتامين د، كالسيوم، الكوليسترول الكلي</div>
+                <div class="lab-actions">
+                  <button class="lab-action-btn delete">حذف</button>
+                </div>
               </div>
             </div>
           </div>

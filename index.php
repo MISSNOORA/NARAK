@@ -1,8 +1,19 @@
-<!DOCTYPE html>
-<!--
-Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt 
-Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html 
--->
+<?php
+session_start();
+
+if (isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'customer') {
+        header("Location: customer-dashboard.php");
+        exit;
+    } elseif ($_SESSION['role'] === 'lab') {
+        header("Location: lab-dashboard.html");
+        exit;
+    } elseif ($_SESSION['role'] === 'admin') {
+        header("Location: admin-dashboard.html");
+        exit;
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -406,37 +417,49 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html
 
     <!-- Form Area -->
     <div class="form-area">
+<!-- LOGIN PANEL -->
+<form action="login_process.php" method="POST">
+  <div class="panel active" id="panel-login">
+    <div class="form-header">
+      <h2>أهلاً بعودتك</h2>
+      <p>سجّل دخولك للوصول إلى خدمات نرعاك</p>
+    </div>
 
-      <!-- LOGIN PANEL -->
-      <div class="panel active" id="panel-login">
-        <div class="form-header">
-          <h2>أهلاً بعودتك</h2>
-          <p>سجّل دخولك للوصول إلى خدمات نرعاك</p>
-        </div>
+    <div class="role-label">نوع الحساب</div>
+    <div class="role-selector">
+      <label class="role-btn selected">
+        <input type="radio" name="role" value="customer" checked hidden>
+        عميل
+      </label>
 
-        <div class="role-label">نوع الحساب</div>
-        <div class="role-selector">
-          <button class="role-btn selected">عميل</button>
-          <button class="role-btn" onclick="this.parentNode.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('selected')); this.classList.add('selected')">مختبر</button>
-          <button class="role-btn" onclick="this.parentNode.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('selected')); this.classList.add('selected')">المدير</button>
-        </div>
+      <label class="role-btn">
+        <input type="radio" name="role" value="lab" hidden>
+        مختبر
+      </label>
 
-        <div class="form-group">
-          <label>البريد الإلكتروني</label>
-          <input type="email" placeholder="example@email.com">
-        </div>
+      <label class="role-btn">
+        <input type="radio" name="role" value="admin" hidden>
+        المدير
+      </label>
+    </div>
 
-        <div class="form-group">
-          <label>كلمة المرور</label>
-          <input type="password" placeholder="••••••••">
-        </div>
+    <div class="form-group">
+      <label>البريد الإلكتروني</label>
+      <input type="email" name="email" placeholder="example@email.com" required>
+    </div>
 
-        <a href="#" class="forgot">نسيت كلمة المرور؟</a>
+    <div class="form-group">
+      <label>كلمة المرور</label>
+      <input type="password" name="password" placeholder="••••••••" required>
+    </div>
 
-        <button class="btn-primary" onclick="loginDemo()">تسجيل الدخول</button>
-      </div>
+    <a href="#" class="forgot">نسيت كلمة المرور؟</a>
 
+    <button class="btn-primary" type="submit">تسجيل الدخول</button>
+  </div>
+</form>
       <!-- SIGNUP PANEL -->
+      <form action="signup_process.php" method="POST">
       <div class="panel" id="panel-signup">
         <div class="form-header">
           <h2>إنشاء حساب جديد</h2>
@@ -446,32 +469,38 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html
         <div class="form-row">
           <div class="form-group">
             <label>الاسم الأول</label>
-            <input type="text" placeholder="الاسم الأول">
+            <input type="text" name="first_name" placeholder="الاسم الأول" required>
           </div>
           <div class="form-group">
             <label>اسم العائلة</label>
-            <input type="text" placeholder="اسم العائلة">
+            <input type="text" name="last_name"  placeholder="اسم العائلة">
           </div>
         </div>
 
         <div class="form-group">
           <label>البريد الإلكتروني</label>
-          <input type="email" placeholder="example@email.com">
+          <input type="email" name="email"  placeholder="example@email.com" required>
         </div>
 
         <div class="form-group">
           <label>رقم الجوال</label>
-          <input type="tel" placeholder="05xxxxxxxx">
+          <input type="tel" name="phone" placeholder="05xxxxxxxx" required>
         </div>
 
         <div class="form-group">
           <label>كلمة المرور</label>
-          <input type="password" placeholder="••••••••">
+          <input type="password" name="password" placeholder="••••••••" required>
+        </div>
+          
+        <div class="form-group">
+          <label> موقع المنزل </label>
+          <input type="url" name="address" placeholder="رابط">
         </div>
 
-        <button class="btn-primary" onclick="window.location.href='customer-dashboard.html'">إنشاء الحساب</button>
+        <button class="btn-primary" type="submit">إنشاء الحساب</button>
       </div>
-
+    </form>
+      
     </div>
   </div>
 </div>
@@ -489,19 +518,19 @@ function showPanel(name, btn) {
   btn.classList.remove('inactive');
 }
 
-function loginDemo() {
-  const selected = document.querySelector('.role-btn.selected');
-  const role = selected ? selected.textContent.trim() : '';
+</script>
+<script>
+document.querySelectorAll('.role-selector .role-btn').forEach(label => {
+  label.addEventListener('click', function () {
+    document.querySelectorAll('.role-selector .role-btn').forEach(btn => btn.classList.remove('selected'));
+    this.classList.add('selected');
 
-  if (role === 'مختبر') {
-    window.location.href = 'lab-dashboard.html';
-  } else if (role === 'المدير'){
-     window.location.href = 'admin-dashboard.html'; 
-  }
-  else {
-    window.location.href = 'customer-dashboard.html';
-  }
-}
+    const radio = this.querySelector('input[type="radio"]');
+    if (radio) {
+      radio.checked = true;
+    }
+  });
+});
 </script>
 </body>
 </html>

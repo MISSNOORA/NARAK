@@ -1,3 +1,11 @@
+<?php
+session_start();
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'customer') {
+    header("Location: index.php");
+    exit;
+}
+?>
 <!DOCTYPE html>
 <!--
 Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
@@ -918,11 +926,11 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
   <div class="topbar-left">
     <div class="welcome-box">
-      <strong> نورا الصيعري</strong>
+      <strong><?php echo htmlspecialchars($_SESSION['full_name']); ?></strong>
       <span>عميل</span>
     </div>
 
-    <a href="index.html" class="topbar-logout">تسجيل الخروج</a>
+    <a href="logout.php" class="topbar-logout">تسجيل الخروج</a>
   </div>
 </header>
 
@@ -932,7 +940,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
   <div class="section active" id="sec-home">
     <div class="page-header">
       <div class="page-title">
-        <h1>مرحباً، نورا 👋</h1>
+        <h1>مرحباً، <?php echo htmlspecialchars($_SESSION['full_name']); ?> 👋</h1>
         <p>الثلاثاء، ١٠ مارس ٢٠٢٦</p>
       </div>
     </div>
@@ -1008,7 +1016,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
 
           <div class="appointment-side">
-            <span class="status-badge status-confirmed">مكتمل</span>
+            <span class="status-badge status-done">مكتمل</span>
             <div class="appointment-actions">
             </div>
           </div>
