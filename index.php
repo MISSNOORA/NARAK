@@ -14,6 +14,27 @@ if (isset($_SESSION['role'])) {
     }
 }
 ?>
+<?php if (isset($_GET['error'])): ?>
+
+  <?php if ($_GET['error'] == 'missing_fields'): ?>
+    <p style="color:red;">الرجاء تعبئة جميع الحقول</p>
+  <?php endif; ?>
+
+  <?php if ($_GET['error'] == 'invalid_email'): ?>
+    <p style="color:red;">البريد الإلكتروني غير صحيح</p>
+  <?php endif; ?>
+
+  <?php if ($_GET['error'] == 'email_exists'): ?>
+    <p style="color:red;">هذا البريد الإلكتروني مسجل مسبقًا</p>
+  <?php endif; ?>
+
+  <?php if ($_GET['error'] == 'phone_exists'): ?>
+    <p style="color:red;">رقم الجوال مستخدم مسبقًا</p>
+  <?php endif; ?>
+
+<?php endif; ?>
+    
+    
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -418,7 +439,7 @@ if (isset($_SESSION['role'])) {
     <!-- Form Area -->
     <div class="form-area">
 <!-- LOGIN PANEL -->
-<form action="login_process.php" method="POST">
+<form action="login_process.php" method="POST" novalidate>
   <div class="panel active" id="panel-login">
     <div class="form-header">
       <h2>أهلاً بعودتك</h2>
@@ -445,12 +466,16 @@ if (isset($_SESSION['role'])) {
 
     <div class="form-group">
       <label>البريد الإلكتروني</label>
-      <input type="email" name="email" placeholder="example@email.com" required>
+      <input type="email" name="email" placeholder="example@email.com" required 
+        oninvalid="this.setCustomValidity('الرجاء إدخال بريد إلكتروني صحيح')"
+        oninput="this.setCustomValidity('')">
     </div>
 
     <div class="form-group">
       <label>كلمة المرور</label>
-      <input type="password" name="password" placeholder="••••••••" required>
+      <input type="password" name="password" placeholder="••••••••" required
+        oninvalid="this.setCustomValidity('الرجاء إدخال كلمة المرور')"
+        oninput="this.setCustomValidity('')">
     </div>
 
     <a href="#" class="forgot">نسيت كلمة المرور؟</a>
@@ -459,7 +484,7 @@ if (isset($_SESSION['role'])) {
   </div>
 </form>
       <!-- SIGNUP PANEL -->
-      <form action="signup_process.php" method="POST">
+      <form action="signup_process.php" method="POST" novalidate>
       <div class="panel" id="panel-signup">
         <div class="form-header">
           <h2>إنشاء حساب جديد</h2>
@@ -469,27 +494,37 @@ if (isset($_SESSION['role'])) {
         <div class="form-row">
           <div class="form-group">
             <label>الاسم الأول</label>
-            <input type="text" name="first_name" placeholder="الاسم الأول" required>
+            <input type="text" name="first_name" placeholder="الاسم الأول" required
+                oninvalid="this.setCustomValidity('الرجاء إدخال الاسم الأول')"
+                oninput="this.setCustomValidity('')">
           </div>
           <div class="form-group">
             <label>اسم العائلة</label>
-            <input type="text" name="last_name"  placeholder="اسم العائلة">
+            <input type="text" name="last_name"  placeholder="اسم العائلة" required
+                oninvalid="this.setCustomValidity('الرجاء إدخال الاسم الأخير')"
+                oninput="this.setCustomValidity('')">
           </div>
         </div>
 
         <div class="form-group">
           <label>البريد الإلكتروني</label>
-          <input type="email" name="email"  placeholder="example@email.com" required>
+          <input type="email" name="email"  placeholder="example@email.com" required
+            oninvalid="this.setCustomValidity('الرجاء إدخال بريد إلكتروني صحيح')"
+            oninput="this.setCustomValidity('')">
         </div>
 
         <div class="form-group">
           <label>رقم الجوال</label>
-          <input type="tel" name="phone" placeholder="05xxxxxxxx" required>
+          <input type="tel" name="phone" placeholder="05xxxxxxxx" required
+            oninvalid="this.setCustomValidity('الرجاء إدخال رقم الجوال')"
+            oninput="this.setCustomValidity('')">
         </div>
 
         <div class="form-group">
           <label>كلمة المرور</label>
-          <input type="password" name="password" placeholder="••••••••" required>
+          <input type="password" name="password" placeholder="••••••••" required
+            oninvalid="this.setCustomValidity('الرجاء إدخال كلمة المرور')"
+            oninput="this.setCustomValidity('')">
         </div>
           
         <div class="form-group">
