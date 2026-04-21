@@ -243,7 +243,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     </a>
   </nav>
   <div class="sidebar-footer">
-    <a class="logout-btn" href="index.html"><span>🚪</span> تسجيل الخروج</a>
+    <a class="logout-btn" href="index.php"><span>🚪</span> تسجيل الخروج</a>
   </div>
 </aside>
 

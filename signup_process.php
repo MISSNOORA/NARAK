@@ -23,7 +23,7 @@ if (
     empty($phone) ||
     empty($password)
 ) {
-    header("Location: index.php?error=empty_fields");
+    header("Location: index.php?error=missing_fields");
     exit;
 }
 
