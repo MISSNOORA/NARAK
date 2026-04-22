@@ -1,3 +1,203 @@
+<?php
+require_once "db.php";
+session_start();
+
+if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
+    header("Location: index.php");
+    exit;
+}
+
+$adminName = $_SESSION["full_name"] ?? "مدير النظام";
+
+/* حظر عميل */
+if (isset($_GET["block_customer"]) && isset($_GET["report_id"])) {
+    $customerId = (int) $_GET["block_customer"];
+    $reportId = (int) $_GET["report_id"];
+
+    $blockQuery = mysqli_prepare($conn, "UPDATE customer SET status = 'blocked' WHERE customer_id = ?");
+    mysqli_stmt_bind_param($blockQuery, "i", $customerId);
+    mysqli_stmt_execute($blockQuery);
+
+    $closeReportQuery = mysqli_prepare($conn, "UPDATE report SET status = 'closed' WHERE report_id = ?");
+    mysqli_stmt_bind_param($closeReportQuery, "i", $reportId);
+    mysqli_stmt_execute($closeReportQuery);
+
+    header("Location: admin-dashboard.php");
+    exit;
+}
+
+/* حذف مختبر */
+if (isset($_GET["delete_lab"])) {
+    $labId = (int) $_GET["delete_lab"];
+
+    $deleteTests = mysqli_prepare($conn, "DELETE FROM test_type WHERE lab_id = ?");
+    mysqli_stmt_bind_param($deleteTests, "i", $labId);
+    mysqli_stmt_execute($deleteTests);
+
+    $deleteSlots = mysqli_prepare($conn, "DELETE FROM time_slot WHERE lab_id = ?");
+    mysqli_stmt_bind_param($deleteSlots, "i", $labId);
+    mysqli_stmt_execute($deleteSlots);
+
+    $deleteLab = mysqli_prepare($conn, "DELETE FROM laboratory WHERE lab_id = ?");
+    mysqli_stmt_bind_param($deleteLab, "i", $labId);
+    mysqli_stmt_execute($deleteLab);
+
+    header("Location: admin-dashboard.php");
+    exit;
+}
+
+/* إضافة مختبر */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_lab"])) {
+    $lab_name = trim($_POST["lab_name"] ?? "");
+    $email = trim($_POST["email"] ?? "");
+    $phone_number = trim($_POST["phone_number"] ?? "");
+    $password = $_POST["password"] ?? "";
+    $address = trim($_POST["address"] ?? "");
+
+    $lab_logo = "images/2.png";
+
+    if (isset($_FILES["lab_logo_file"]) && $_FILES["lab_logo_file"]["error"] === 0) {
+        $uploadDir = "images/";
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $fileName = time() . "_" . basename($_FILES["lab_logo_file"]["name"]);
+        $targetFile = $uploadDir . $fileName;
+
+        if (move_uploaded_file($_FILES["lab_logo_file"]["tmp_name"], $targetFile)) {
+            $lab_logo = $targetFile;
+        }
+    }
+
+    if (!empty($lab_name) && !empty($email) && !empty($phone_number) && !empty($password) && !empty($address)) {
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+        $stmt = mysqli_prepare($conn, "INSERT INTO laboratory (lab_name, lab_logo, email, phone_number, address, password_hash) VALUES (?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "ssssss", $lab_name, $lab_logo, $email, $phone_number, $address, $password_hash);
+        mysqli_stmt_execute($stmt);
+
+        $newLabId = mysqli_insert_id($conn);
+
+        /* التحاليل الجاهزة مع الأسعار */
+        if (!empty($_POST["tests"]) && is_array($_POST["tests"])) {
+            $testPrices = $_POST["test_prices"] ?? [];
+
+            $testInsert = mysqli_prepare($conn, "
+                INSERT INTO test_type (lab_id, test_name, price, unit, normal_range)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+
+            foreach ($_POST["tests"] as $testName) {
+                $price = isset($testPrices[$testName]) && $testPrices[$testName] !== "" ? (float)$testPrices[$testName] : 0.00;
+                $unit = "";
+                $normalRange = "";
+
+                mysqli_stmt_bind_param($testInsert, "isdss", $newLabId, $testName, $price, $unit, $normalRange);
+                mysqli_stmt_execute($testInsert);
+            }
+        }
+
+        /* التحاليل الجديدة */
+        if (!empty($_POST["custom_test_names"]) && is_array($_POST["custom_test_names"])) {
+            $customNames = $_POST["custom_test_names"] ?? [];
+            $customRanges = $_POST["custom_test_ranges"] ?? [];
+            $customUnits = $_POST["custom_test_units"] ?? [];
+            $customPrices = $_POST["custom_test_prices"] ?? [];
+
+            $customInsert = mysqli_prepare($conn, "
+                INSERT INTO test_type (lab_id, test_name, price, unit, normal_range)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+
+            for ($i = 0; $i < count($customNames); $i++) {
+                $testName = trim($customNames[$i] ?? "");
+                $normalRange = trim($customRanges[$i] ?? "");
+                $unit = trim($customUnits[$i] ?? "");
+                $price = isset($customPrices[$i]) && $customPrices[$i] !== "" ? (float)$customPrices[$i] : 0.00;
+
+                if ($testName !== "") {
+                    mysqli_stmt_bind_param($customInsert, "isdss", $newLabId, $testName, $price, $unit, $normalRange);
+                    mysqli_stmt_execute($customInsert);
+                }
+            }
+        }
+
+        header("Location: admin-dashboard.php");
+        exit;
+    }
+}
+
+/* إحصائيات */
+$totalCustomers = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM customer"))["total"] ?? 0;
+$totalLabs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM laboratory"))["total"] ?? 0;
+$totalAppointments = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM appointment"))["total"] ?? 0;
+$openReports = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM report WHERE status = 'open'"))["total"] ?? 0;
+
+/* المختبرات */
+$labsQuery = mysqli_query($conn, "
+    SELECT l.lab_id, l.lab_name, l.lab_logo, l.address,
+           GROUP_CONCAT(t.test_name SEPARATOR '، ') AS tests
+    FROM laboratory l
+    LEFT JOIN test_type t ON l.lab_id = t.lab_id
+    GROUP BY l.lab_id
+");
+
+/* آخر الطلبات */
+$latestAppointments = mysqli_query($conn, "
+    SELECT a.appointment_id, a.status, ts.slot_date,
+           CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
+           l.lab_name,
+           GROUP_CONCAT(tt.test_name SEPARATOR '، ') AS tests
+    FROM appointment a
+    JOIN customer c ON a.customer_id = c.customer_id
+    JOIN laboratory l ON a.lab_id = l.lab_id
+    JOIN time_slot ts ON a.slot_id = ts.slot_id
+    LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+    LEFT JOIN test_type tt ON att.test_type_id = tt.test_type_id
+    GROUP BY a.appointment_id
+    ORDER BY a.appointment_id DESC
+    LIMIT 3
+");
+
+/* ملخص البلاغات */
+$summaryReports = mysqli_query($conn, "
+    SELECT r.report_id, r.reason, r.report_date,
+           CONCAT(c.first_name, ' ', c.last_name) AS customer_name
+    FROM report r
+    JOIN customer c ON r.customer_id = c.customer_id
+    WHERE r.status = 'open'
+    ORDER BY r.report_id DESC
+    LIMIT 2
+");
+
+/* كل البلاغات */
+$reportsQuery = mysqli_query($conn, "
+    SELECT r.report_id, r.customer_id, r.reason, r.report_date, r.status,
+           c.email, c.phone_number,
+           CONCAT(c.first_name, ' ', c.last_name) AS customer_name
+    FROM report r
+    JOIN customer c ON r.customer_id = c.customer_id
+    WHERE r.status = 'open'
+    ORDER BY r.report_id DESC
+");
+
+/* كل الطلبات */
+$allAppointments = mysqli_query($conn, "
+    SELECT a.appointment_id, a.status, ts.slot_date,
+           CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
+           l.lab_name,
+           GROUP_CONCAT(tt.test_name SEPARATOR '، ') AS tests
+    FROM appointment a
+    JOIN customer c ON a.customer_id = c.customer_id
+    JOIN laboratory l ON a.lab_id = l.lab_id
+    JOIN time_slot ts ON a.slot_id = ts.slot_id
+    LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+    LEFT JOIN test_type tt ON att.test_type_id = tt.test_type_id
+    GROUP BY a.appointment_id
+    ORDER BY a.appointment_id DESC
+");
+?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -137,6 +337,7 @@
   color: #444;
   cursor: pointer;
   transition: all 0.2s;
+  text-decoration: none;
 }
 
 .lab-action-btn:hover {
@@ -203,8 +404,8 @@
     display: block;
   }
 .lab-details {
-  flex: 1; /* Makes the text area take up the remaining space */
-  padding-left: 60px; /* Creates an invisible wall so text doesn't hit the button */
+  flex: 1;
+  padding-left: 60px;
 }
   .lab-details strong {
     display: block;
@@ -236,7 +437,7 @@
   <div class="sidebar-user">
     <div class="user-avatar">م</div>
     <div class="user-info">
-      <strong>مدير النظام</strong>
+      <strong><?php echo htmlspecialchars($adminName); ?></strong>
       <span>صلاحيات كاملة</span>
     </div>
   </div>
@@ -253,7 +454,7 @@
     </a>
   </nav>
   <div class="sidebar-footer">
-    <a class="logout-btn" href="index.html"><span>🚪</span> تسجيل الخروج</a>
+    <a class="logout-btn" href="logout.php"><span>🚪</span> تسجيل الخروج</a>
   </div>
 </aside>
 
@@ -269,10 +470,10 @@
     </div>
 
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-num">١٢٤</div><div class="stat-label">إجمالي العملاء</div></div>
-      <div class="stat-card"><div class="stat-num">٤</div><div class="stat-label">مختبرات نشطة</div></div>
-      <div class="stat-card"><div class="stat-num">٣٧</div><div class="stat-label">طلبات هذا الشهر</div></div>
-      <div class="stat-card"><div class="stat-num">٢</div><div class="stat-label">مختبرات تنتظر الموافقة</div></div>
+      <div class="stat-card"><div class="stat-num"><?php echo $totalCustomers; ?></div><div class="stat-label">إجمالي العملاء</div></div>
+      <div class="stat-card"><div class="stat-num"><?php echo $totalLabs; ?></div><div class="stat-label">مختبرات نشطة</div></div>
+      <div class="stat-card"><div class="stat-num"><?php echo $totalAppointments; ?></div><div class="stat-label">طلبات هذا الشهر</div></div>
+      <div class="stat-card"><div class="stat-num"><?php echo $openReports; ?></div><div class="stat-label">البلاغات المفتوحة</div></div>
     </div>
 
     <div class="home-grid">
@@ -287,23 +488,26 @@
               <div>العميل / الفحص</div><div>المختبر</div><div style="text-align:center">الحالة</div>
             </div>
 
-            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;padding:10px 0;align-items:center;border-bottom:1px solid #f0ebe4;">
-              <div><div style="font-size:0.85rem;font-weight:600;">نورة آل حسين</div><div style="font-size:0.73rem;color:#999;">فيتامين د، كالسيوم</div></div>
-              <div style="font-size:0.78rem;color:var(--medium-brown);">مختبرات وريد الطبية</div>
-              <div style="text-align:center"><span class="status-badge status-confirmed">مؤكد</span></div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;padding:10px 0;align-items:center;border-bottom:1px solid #f0ebe4;">
-              <div><div style="font-size:0.85rem;font-weight:600;">خالد الشمري</div><div style="font-size:0.73rem;color:#999;">فيتامين د</div></div>
-              <div style="font-size:0.78rem;color:var(--medium-brown);">مختبرات البرج</div>
-              <div style="text-align:center"><span class="status-badge status-pending">انتظار</span></div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;padding:10px 0;align-items:center;">
-              <div><div style="font-size:0.85rem;font-weight:600;">عبدالله السفياني</div><div style="font-size:0.73rem;color:#999;">كالسيوم</div></div>
-              <div style="font-size:0.78rem;color:var(--medium-brown);">عيادات النهدي كير</div>
-              <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
-            </div>
+            <?php if (mysqli_num_rows($latestAppointments) > 0): ?>
+              <?php while ($latest = mysqli_fetch_assoc($latestAppointments)): ?>
+                <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:8px;padding:10px 0;align-items:center;border-bottom:1px solid #f0ebe4;">
+                  <div><div style="font-size:0.85rem;font-weight:600;"><?php echo htmlspecialchars($latest["customer_name"]); ?></div><div style="font-size:0.73rem;color:#999;"><?php echo htmlspecialchars($latest["tests"] ?: "—"); ?></div></div>
+                  <div style="font-size:0.78rem;color:var(--medium-brown);"><?php echo htmlspecialchars($latest["lab_name"]); ?></div>
+                  <div style="text-align:center">
+                    <?php
+                      $badgeClass = "status-pending";
+                      $badgeText = "انتظار";
+                      if ($latest["status"] === "confirmed") { $badgeClass = "status-confirmed"; $badgeText = "مؤكد"; }
+                      elseif ($latest["status"] === "completed") { $badgeClass = "status-done"; $badgeText = "مكتمل"; }
+                      elseif ($latest["status"] === "cancelled") { $badgeClass = "status-waiting"; $badgeText = "ملغي"; }
+                    ?>
+                    <span class="status-badge <?php echo $badgeClass; ?>"><?php echo $badgeText; ?></span>
+                  </div>
+                </div>
+              <?php endwhile; ?>
+            <?php else: ?>
+              <div style="padding:10px 0;font-size:0.85rem;color:#777;">لا توجد طلبات</div>
+            <?php endif; ?>
           </div>
         </div>
 
@@ -313,53 +517,23 @@
           </div>
 
           <div class="labs-grid">
-            <div class="lab-home-card">
-              <div class="lab-logo-box"><img src="images/habib.png" alt="habib-logo"></div>
-              <div class="lab-details">
-                <strong>مجموعة الدكتور سليمان الحبيب الطبية</strong>
-                <span>الرياض</span>
-                <div class="lab-tests-line">فيتامين د، كالسيوم، هيموجلوبين</div>
-                <div class="lab-actions">
-                  <button class="lab-action-btn delete">حذف</button>
+            <?php if (mysqli_num_rows($labsQuery) > 0): ?>
+              <?php while ($lab = mysqli_fetch_assoc($labsQuery)): ?>
+                <div class="lab-home-card">
+                  <div class="lab-logo-box"><img src="<?php echo htmlspecialchars($lab["lab_logo"]); ?>" alt="habib-logo"></div>
+                  <div class="lab-details">
+                    <strong><?php echo htmlspecialchars($lab["lab_name"]); ?></strong>
+                    <span><?php echo htmlspecialchars($lab["address"]); ?></span>
+                    <div class="lab-tests-line"><?php echo htmlspecialchars($lab["tests"] ?: ""); ?></div>
+                    <div class="lab-actions">
+                      <a class="lab-action-btn delete" href="admin-dashboard.php?delete_lab=<?php echo $lab["lab_id"]; ?>" onclick="return confirm('هل أنت متأكد من حذف المختبر؟')">حذف</a>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <div class="lab-home-card">
-              <div class="lab-logo-box"><img src="images/borg.png" alt="borg-logo"></div>
-              <div class="lab-details">
-                <strong>مختبرات البرج</strong>
-                <span>الرياض</span>
-                <div class="lab-tests-line">فيتامين د، كالسيوم، فيتامين ب١٢</div>
-                <div class="lab-actions">
-                  <button class="lab-action-btn delete">حذف</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="lab-home-card">
-              <div class="lab-logo-box"><img src="images/nahdi.png" alt="nahdi-logo"></div>
-              <div class="lab-details">
-                <strong>عيادات النهدي كير</strong>
-                <span>الرياض</span>
-                <div class="lab-tests-line">فيتامين د، كالسيوم، الحديد</div>
-                <div class="lab-actions">
-                  <button class="lab-action-btn delete">حذف</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="lab-home-card">
-              <div class="lab-logo-box"><img src="images/wared.png" alt="wared-logo" ></div>
-              <div class="lab-details">
-                <strong>مختبرات وريد الطبية</strong>
-                <span>الرياض</span>
-                <div class="lab-tests-line">فيتامين د، كالسيوم، الكوليسترول الكلي</div>
-                <div class="lab-actions">
-                  <button class="lab-action-btn delete">حذف</button>
-                </div>
-              </div>
-            </div>
+              <?php endwhile; ?>
+            <?php else: ?>
+              <div style="font-size:0.85rem;color:#777;">لا توجد مختبرات</div>
+            <?php endif; ?>
           </div>
         </div>
       </div>
@@ -371,15 +545,18 @@
           </div>
 
           <div style="display:flex;flex-direction:column;gap:10px;">
-            <div style="padding:12px;background:#fce8e8;border-radius:10px;border-right:3px solid #c42a2a;">
-              <div style="font-size:0.86rem;font-weight:700;color:#222;">بلاغ على حساب: نورة الحسين</div>
-              <div style="font-size:0.75rem;color:#777;margin-top:4px;">تم الإبلاغ بواسطة المختبر بسبب تأخر في الحضور.</div>
-            </div>
-
-            <div style="padding:12px;background:#fce8e8;border-radius:10px;border-right:3px solid #c42a2a;">
-              <div style="font-size:0.86rem;font-weight:700;color:#222;">بلاغ على حساب: محمد العتيبي</div>
-              <div style="font-size:0.75rem;color:#777;margin-top:4px;">شكوى متكررة من إساءة استخدام الخدمة.</div>
-            </div>
+            <?php if (mysqli_num_rows($summaryReports) > 0): ?>
+              <?php while ($summary = mysqli_fetch_assoc($summaryReports)): ?>
+                <div style="padding:12px;background:#fce8e8;border-radius:10px;border-right:3px solid #c42a2a;">
+                  <div style="font-size:0.86rem;font-weight:700;color:#222;">بلاغ على حساب: <?php echo htmlspecialchars($summary["customer_name"]); ?></div>
+                  <div style="font-size:0.75rem;color:#777;margin-top:4px;"><?php echo htmlspecialchars($summary["reason"]); ?></div>
+                </div>
+              <?php endwhile; ?>
+            <?php else: ?>
+              <div style="padding:12px;background:#fce8e8;border-radius:10px;border-right:3px solid #c42a2a;">
+                <div style="font-size:0.86rem;font-weight:700;color:#222;">لا توجد بلاغات</div>
+              </div>
+            <?php endif; ?>
           </div>
         </div>
         <div class="card">
@@ -387,75 +564,107 @@
             <div class="card-title">إضافة مختبر جديد</div>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <form method="POST" enctype="multipart/form-data">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
 
-            <div>
-              <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">اسم المختبر</label>
-              <input type="text" placeholder="مثال: مختبر الأمل الطبي"
-                     style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-            </div>
+              <div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">اسم المختبر</label>
+                <input type="text" name="lab_name" placeholder="مثال: مختبر الأمل الطبي"
+                       style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+              </div>
 
-            <div>
-              <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">البريد الإلكتروني</label>
-              <input type="email" placeholder="lab@email.com"
-                     style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-            </div>
+              <div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">البريد الإلكتروني</label>
+                <input type="email" name="email" placeholder="lab@email.com"
+                       style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+              </div>
 
-            <div>
-              <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">رقم الجوال</label>
-              <input type="text" placeholder="05xxxxxxxx"
-                     style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-            </div>
+              <div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">رقم الجوال</label>
+                <input type="text" name="phone_number" placeholder="05xxxxxxxx"
+                       style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+              </div>
 
-            <div>
-              <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">كلمة المرور</label>
-              <input type="password" placeholder="••••••••"
-                     style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-            </div>
+              <div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">كلمة المرور</label>
+                <input type="password" name="password" placeholder="••••••••"
+                       style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+              </div>
 
-            <div>
-              <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">المدينة</label>
-              <input type="text" placeholder="الرياض"
-                     style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-            </div>
+              <div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">المدينة</label>
+                <input type="text" name="address" placeholder="الرياض"
+                       style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+              </div>
 
-            <div>
-              <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">شعار المختبر</label>
-              <input type="file"
-                     style="width:100%;padding:10px 12px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.85rem;outline:none;background:#faf8f5;">
-            </div>
+              <div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">شعار المختبر</label>
+                <input type="file" name="lab_logo_file"
+                       style="width:100%;padding:10px 12px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.85rem;outline:none;background:#faf8f5;">
+              </div>
 
-            <div>
-              <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">زيارة منزلية</label>
-              <select style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-                <option>نعم</option>
-                <option>لا</option>
-              </select>
+              <div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">زيارة منزلية</label>
+                <select style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+                  <option>نعم</option>
+                  <option>لا</option>
+                </select>
+              </div>
             </div>
-          </div>
 
             <div style="margin-top:18px;">
               <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:8px;">التحاليل التي يقدمها المختبر</label>
 
-              <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
-                <label style="background:#faf8f5;border:1px solid #e8e0d8;border-radius:10px;padding:10px 12px;font-size:0.85rem;">
-                  <input type="checkbox" style="margin-left:6px;"> فيتامين د
-                </label>
-                <label style="background:#faf8f5;border:1px solid #e8e0d8;border-radius:10px;padding:10px 12px;font-size:0.85rem;">
-                  <input type="checkbox" style="margin-left:6px;"> كالسيوم
-                </label>
-                <label style="background:#faf8f5;border:1px solid #e8e0d8;border-radius:10px;padding:10px 12px;font-size:0.85rem;">
-                  <input type="checkbox" style="margin-left:6px;"> هيموجلوبين
-                </label>
-                <label style="background:#faf8f5;border:1px solid #e8e0d8;border-radius:10px;padding:10px 12px;font-size:0.85rem;">
-                  <input type="checkbox" style="margin-left:6px;"> فيتامين ب١٢
-                </label>
-                <label style="background:#faf8f5;border:1px solid #e8e0d8;border-radius:10px;padding:10px 12px;font-size:0.85rem;">
-                  <input type="checkbox" style="margin-left:6px;"> الحديد
-                </label>
-                <label style="background:#faf8f5;border:1px solid #e8e0d8;border-radius:10px;padding:10px 12px;font-size:0.85rem;">
-                  <input type="checkbox" style="margin-left:6px;"> الكوليسترول الكلي
-                </label>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
+
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <label style="min-width:140px;">
+                    <input type="checkbox" name="tests[]" value="فيتامين د" style="margin-left:6px;"> فيتامين د
+                  </label>
+                  <input type="number" step="0.01" name="test_prices[فيتامين د]" placeholder="السعر"
+                         style="width:140px;padding:10px;border:1px solid #e8e0d8;border-radius:10px;">
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <label style="min-width:140px;">
+                    <input type="checkbox" name="tests[]" value="كالسيوم" style="margin-left:6px;"> كالسيوم
+                  </label>
+                  <input type="number" step="0.01" name="test_prices[كالسيوم]" placeholder="السعر"
+                         style="width:140px;padding:10px;border:1px solid #e8e0d8;border-radius:10px;">
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <label style="min-width:140px;">
+                    <input type="checkbox" name="tests[]" value="هيموجلوبين" style="margin-left:6px;"> هيموجلوبين
+                  </label>
+                  <input type="number" step="0.01" name="test_prices[هيموجلوبين]" placeholder="السعر"
+                         style="width:140px;padding:10px;border:1px solid #e8e0d8;border-radius:10px;">
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <label style="min-width:140px;">
+                    <input type="checkbox" name="tests[]" value="فيتامين ب١٢" style="margin-left:6px;"> فيتامين ب١٢
+                  </label>
+                  <input type="number" step="0.01" name="test_prices[فيتامين ب١٢]" placeholder="السعر"
+                         style="width:140px;padding:10px;border:1px solid #e8e0d8;border-radius:10px;">
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <label style="min-width:140px;">
+                    <input type="checkbox" name="tests[]" value="الحديد" style="margin-left:6px;"> الحديد
+                  </label>
+                  <input type="number" step="0.01" name="test_prices[الحديد]" placeholder="السعر"
+                         style="width:140px;padding:10px;border:1px solid #e8e0d8;border-radius:10px;">
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <label style="min-width:140px;">
+                    <input type="checkbox" name="tests[]" value="الكوليسترول الكلي" style="margin-left:6px;"> الكوليسترول الكلي
+                  </label>
+                  <input type="number" step="0.01" name="test_prices[الكوليسترول الكلي]" placeholder="السعر"
+                         style="width:140px;padding:10px;border:1px solid #e8e0d8;border-radius:10px;">
+                </div>
+
               </div>
 
               <div style="background:#faf8f5;border:1px solid #e8e0d8;border-radius:14px;padding:16px;">
@@ -482,6 +691,12 @@
                            style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#fff;">
                   </div>
 
+                  <div>
+                    <label style="display:block;font-size:0.78rem;font-weight:600;color:#555;margin-bottom:6px;">السعر</label>
+                    <input type="number" id="newTestPrice" placeholder="مثال: 120"
+                           style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#fff;">
+                  </div>
+
                   <button type="button"
                         onclick="addNewTest()"
                         style="margin-top:8px;padding:12px;border:none;border-radius:10px;background:var(--deep-red);color:#fff;font-family:Tajawal,sans-serif;font-weight:700;cursor:pointer;width:100%;">
@@ -493,10 +708,11 @@
               </div>
             </div>
 
-          <div style="margin-top:20px;display:flex;gap:10px;">
-            <button class="btn btn-primary" onclick="alert('تم إنشاء حساب المختبر وإضافته للنظام بنجاح')">إضافة المختبر</button>
-            <button class="btn" style="background:#f1f1f1;color:#555;" onclick="alert('تم إلغاء العملية')">إلغاء</button>
-          </div>
+            <div style="margin-top:20px;display:flex;gap:10px;">
+              <button class="btn btn-primary" type="submit" name="add_lab">إضافة المختبر</button>
+              <button class="btn" type="reset" style="background:#f1f1f1;color:#555;">إلغاء</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -517,27 +733,30 @@
         <div style="text-align:center">الإجراء</div>
       </div>
 
-      <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.5fr 1fr;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:34px;height:34px;background:rgba(82,0,0,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--deep-red);font-size:0.9rem;">ن</div>
-          <div><div style="font-size:0.88rem;font-weight:600;">نورة الحسين</div><div style="font-size:0.72rem;color:#999;">بلاغ بتاريخ ٩ مارس ٢٠٢٦</div></div>
+      <?php if (mysqli_num_rows($reportsQuery) > 0): ?>
+        <?php while ($report = mysqli_fetch_assoc($reportsQuery)): ?>
+          <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.5fr 1fr;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:34px;height:34px;background:rgba(82,0,0,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--deep-red);font-size:0.9rem;"><?php echo mb_substr($report["customer_name"], 0, 1, "UTF-8"); ?></div>
+              <div><div style="font-size:0.88rem;font-weight:600;"><?php echo htmlspecialchars($report["customer_name"]); ?></div><div style="font-size:0.72rem;color:#999;">بلاغ بتاريخ <?php echo htmlspecialchars($report["report_date"]); ?></div></div>
+            </div>
+            <div style="font-size:0.82rem;color:#555;"><?php echo htmlspecialchars($report["email"]); ?></div>
+            <div style="font-size:0.82rem;color:#555;"><?php echo htmlspecialchars($report["phone_number"]); ?></div>
+            <div style="font-size:0.8rem;color:#777;"><?php echo htmlspecialchars($report["reason"]); ?></div>
+<div style="text-align:center">
+  <a class="btn"
+     style="background:#fce8e8;color:#c42a2a;padding:6px 14px;font-size:0.75rem;text-decoration:none;"
+     href="admin-dashboard.php?block_customer=<?php echo $report["customer_id"]; ?>&report_id=<?php echo $report["report_id"]; ?>"
+     onclick="return confirm('هل أنت متأكد من حظر هذا الحساب؟')">
+     حظر
+  </a>
+</div>          </div>
+        <?php endwhile; ?>
+      <?php else: ?>
+        <div class="table-row" style="grid-template-columns:1fr;">
+          <div style="font-size:0.85rem;color:#777;">لا توجد بلاغات</div>
         </div>
-        <div style="font-size:0.82rem;color:#555;">noura@email.com</div>
-        <div style="font-size:0.82rem;color:#555;">٠٥٠ ١٢٣ ٤٥٦٧</div>
-        <div style="font-size:0.8rem;color:#777;">عدم التجاوب </div>
-        <div style="text-align:center"><button class="btn" style="background:#fce8e8;color:#c42a2a;padding:6px 14px;font-size:0.75rem;" onclick="alert('تم حظر الحساب')">حظر</button></div>
-      </div>
-
-      <div class="table-row" style="grid-template-columns:2fr 1.5fr 1fr 1.5fr 1fr;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:34px;height:34px;background:rgba(82,0,0,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--deep-red);font-size:0.9rem;">م</div>
-          <div><div style="font-size:0.88rem;font-weight:600;">محمد العتيبي</div><div style="font-size:0.72rem;color:#999;">بلاغ بتاريخ ٨ مارس ٢٠٢٦</div></div>
-        </div>
-        <div style="font-size:0.82rem;color:#555;">mohammed@email.com</div>
-        <div style="font-size:0.82rem;color:#555;">٠٥٦ ٣٣٣ ٧٧٧٧</div>
-        <div style="font-size:0.8rem;color:#777;">سلوك غير مناسب  </div>
-        <div style="text-align:center"><button class="btn" style="background:#fce8e8;color:#c42a2a;padding:6px 14px;font-size:0.75rem;" onclick="alert('تم حظر الحساب')">حظر</button></div>
-      </div>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -556,45 +775,30 @@
         <div style="text-align:center">الحالة</div>
       </div>
 
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
-        <div><div style="font-size:0.85rem;font-weight:600;">نورة آل حسين</div></div>
-        <div style="font-size:0.8rem;color:var(--medium-brown);">فيتامين د، كالسيوم</div>
-        <div style="font-size:0.8rem;color:#555;">مختبرات وريد الطبية</div>
-        <div style="font-size:0.8rem;color:#555;">١٢ مارس</div>
-        <div style="text-align:center"><span class="status-badge status-confirmed">مؤكد</span></div>
-      </div>
-
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
-        <div><div style="font-size:0.85rem;font-weight:600;">خالد الشمري</div></div>
-        <div style="font-size:0.8rem;color:var(--medium-brown);">فيتامين د</div>
-        <div style="font-size:0.8rem;color:#555;">مختبرات البرج</div>
-        <div style="font-size:0.8rem;color:#555;">٨ مارس</div>
-        <div style="text-align:center"><span class="status-badge status-pending">انتظار</span></div>
-      </div>
-
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
-        <div><div style="font-size:0.85rem;font-weight:600;">عبدالله السفياني</div></div>
-        <div style="font-size:0.8rem;color:var(--medium-brown);">كالسيوم</div>
-        <div style="font-size:0.8rem;color:#555;">عيادات النهدي كير</div>
-        <div style="font-size:0.8rem;color:#555;">٧ مارس</div>
-        <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
-      </div>
-
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
-        <div><div style="font-size:0.85rem;font-weight:600;color:#aaa;">فاطمة الزهراني</div></div>
-        <div style="font-size:0.8rem;color:#bbb;">هيموجلوبين</div>
-        <div style="font-size:0.8rem;color:#bbb;">مجموعة الدكتور سليمان الحبيب الطبية</div>
-        <div style="font-size:0.8rem;color:#bbb;">٥ مارس</div>
-        <div style="text-align:center"><span class="status-badge status-done">مكتمل</span></div>
-      </div>
-
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
-        <div><div style="font-size:0.85rem;font-weight:600;color:#aaa;">سارة المحمد</div></div>
-        <div style="font-size:0.8rem;color:#bbb;">فيتامين ب١٢</div>
-        <div style="font-size:0.8rem;color:#bbb;">مختبرات البرج</div>
-        <div style="font-size:0.8rem;color:#bbb;">٦ مارس</div>
-        <div style="text-align:center"><span class="status-badge" style="background:#fce8e8;color:#c42a2a;">ملغي</span></div>
-      </div>
+      <?php if (mysqli_num_rows($allAppointments) > 0): ?>
+        <?php while ($appointment = mysqli_fetch_assoc($allAppointments)): ?>
+          <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+            <div><div style="font-size:0.85rem;font-weight:600;"><?php echo htmlspecialchars($appointment["customer_name"]); ?></div></div>
+            <div style="font-size:0.8rem;color:var(--medium-brown);"><?php echo htmlspecialchars($appointment["tests"] ?: "—"); ?></div>
+            <div style="font-size:0.8rem;color:#555;"><?php echo htmlspecialchars($appointment["lab_name"]); ?></div>
+            <div style="font-size:0.8rem;color:#555;"><?php echo htmlspecialchars($appointment["slot_date"]); ?></div>
+            <div style="text-align:center">
+              <?php
+                $rowClass = "status-pending";
+                $rowText = "انتظار";
+                if ($appointment["status"] === "confirmed") { $rowClass = "status-confirmed"; $rowText = "مؤكد"; }
+                elseif ($appointment["status"] === "completed") { $rowClass = "status-done"; $rowText = "مكتمل"; }
+                elseif ($appointment["status"] === "cancelled") { $rowClass = "status-waiting"; $rowText = "ملغي"; }
+              ?>
+              <span class="status-badge <?php echo $rowClass; ?>"><?php echo $rowText; ?></span>
+            </div>
+          </div>
+        <?php endwhile; ?>
+      <?php else: ?>
+        <div class="table-row" style="grid-template-columns:1fr;">
+          <div style="font-size:0.85rem;color:#777;">لا توجد طلبات</div>
+        </div>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -606,6 +810,56 @@ function showSection(name, el) {
   document.getElementById('sec-' + name).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   if (el) el.classList.add('active');
+}
+
+function addNewTest() {
+  const name = document.getElementById('newTestName').value.trim();
+  const range = document.getElementById('newTestRange').value.trim();
+  const unit = document.getElementById('newTestUnit').value.trim();
+  const price = document.getElementById('newTestPrice').value.trim();
+
+  if (!name || !range || !unit || !price) {
+    alert('عبّي اسم التحليل والنطاق الطبيعي والوحدة والسعر');
+    return;
+  }
+
+  const list = document.getElementById('addedTestsList');
+
+  const item = document.createElement('div');
+  item.style.cssText = "background:#fff;border:1px solid #e8e0d8;border-radius:10px;padding:10px 12px;font-size:0.82rem;color:#444;";
+  item.textContent = name + " — " + range + " — " + unit + " — " + price + " ريال";
+
+  const hiddenName = document.createElement('input');
+  hiddenName.type = 'hidden';
+  hiddenName.name = 'custom_test_names[]';
+  hiddenName.value = name;
+
+  const hiddenRange = document.createElement('input');
+  hiddenRange.type = 'hidden';
+  hiddenRange.name = 'custom_test_ranges[]';
+  hiddenRange.value = range;
+
+  const hiddenUnit = document.createElement('input');
+  hiddenUnit.type = 'hidden';
+  hiddenUnit.name = 'custom_test_units[]';
+  hiddenUnit.value = unit;
+
+  const hiddenPrice = document.createElement('input');
+  hiddenPrice.type = 'hidden';
+  hiddenPrice.name = 'custom_test_prices[]';
+  hiddenPrice.value = price;
+
+  item.appendChild(hiddenName);
+  item.appendChild(hiddenRange);
+  item.appendChild(hiddenUnit);
+  item.appendChild(hiddenPrice);
+
+  list.appendChild(item);
+
+  document.getElementById('newTestName').value = "";
+  document.getElementById('newTestRange').value = "";
+  document.getElementById('newTestUnit').value = "";
+  document.getElementById('newTestPrice').value = "";
 }
 </script>
 </body>
