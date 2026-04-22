@@ -1,9 +1,139 @@
 <?php
 session_start();
+require_once 'db.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'customer') {
     header("Location: index.php");
     exit;
+}
+
+$customerId = (int) $_SESSION['user_id'];
+
+// Fetch all test results for this customer, newest first per test type
+$sql = "
+    SELECT
+        tt.test_type_id,
+        tt.test_name,
+        tt.unit,
+        tr.result_value,
+        tr.normal_range,
+        tr.status_flag,
+        tr.report_date
+    FROM test_result tr
+    JOIN appointment a  ON tr.appointment_id = a.appointment_id
+    JOIN test_type  tt  ON tr.test_type_id   = tt.test_type_id
+    WHERE a.customer_id = ?
+    ORDER BY tt.test_type_id, tr.report_date DESC
+";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, 'i', $customerId);
+mysqli_stmt_execute($stmt);
+$rs = mysqli_stmt_get_result($stmt);
+
+// Group by test type — keep only the two most recent readings
+$grouped = [];
+while ($row = mysqli_fetch_assoc($rs)) {
+    $id = $row['test_type_id'];
+    if (!isset($grouped[$id])) {
+        $grouped[$id] = ['current' => null, 'previous' => null];
+    }
+    if ($grouped[$id]['current']  === null) { $grouped[$id]['current']  = $row; }
+    elseif ($grouped[$id]['previous'] === null) { $grouped[$id]['previous'] = $row; }
+}
+
+// Parse "50 – 125" or "< 200" → [min, max]
+function parseRange(string $range): array {
+    if (preg_match('/([\d.]+)\s*[–\-]\s*([\d.]+)/', $range, $m))
+        return [(float)$m[1], (float)$m[2]];
+    if (preg_match('/<\s*([\d.]+)/', $range, $m))
+        return [0.0, (float)$m[1]];
+    return [0.0, 100.0];
+}
+
+// Bar width %: normal range max = 80 % of the bar
+function calcPercent(string $value, float $rangeMax): string {
+    if ($rangeMax <= 0) return '50%';
+    return min(95, max(2, (int) round(((float)$value / ($rangeMax * 1.25)) * 100))) . '%';
+}
+
+function arabicDate(string $ymd): string {
+    static $months = [1=>'يناير',2=>'فبراير',3=>'مارس',4=>'أبريل',
+                      5=>'مايو',6=>'يونيو',7=>'يوليو',8=>'أغسطس',
+                      9=>'سبتمبر',10=>'أكتوبر',11=>'نوفمبر',12=>'ديسمبر'];
+    $ts = strtotime($ymd);
+    return $ts ? (date('j', $ts) . ' ' . $months[(int)date('n', $ts)] . ' ' . date('Y', $ts)) : $ymd;
+}
+
+function statusColor(string $status): string {
+    return match($status) { 'low' => '#c8860a', 'high' => '#c42a2a', default => '#2d7a3a' };
+}
+
+// Build comparisonData array for JS
+$comparisonData = [];
+foreach ($grouped as $id => $g) {
+    $cur  = $g['current'];
+    $prev = $g['previous'];
+    $unit = trim($cur['unit'] ?? '');
+    $suffix = $unit ? ' ' . $unit : '';
+
+    [, $rMax] = parseRange($cur['normal_range']);
+
+    $bars = [];
+    if ($prev) {
+        $bars[] = [
+            'label' => arabicDate($prev['report_date']),
+            'value' => $prev['result_value'] . $suffix,
+            'width' => calcPercent($prev['result_value'], $rMax),
+            'color' => '#bfa27a',
+        ];
+    }
+    $bars[] = [
+        'label' => arabicDate($cur['report_date']),
+        'value' => $cur['result_value'] . $suffix,
+        'width' => calcPercent($cur['result_value'], $rMax),
+        'color' => statusColor($cur['status_flag']),
+    ];
+    $bars[] = [
+        'label' => 'النطاق الطبيعي',
+        'value' => $cur['normal_range'] . $suffix,
+        'width' => '80%',
+        'color' => '#97b494',
+    ];
+
+    $curF  = (float) $cur['result_value'];
+    $prevF = $prev ? (float) $prev['result_value'] : null;
+    $sf    = $cur['status_flag'];
+
+    $tname = $cur['test_name'];
+    $range = $cur['normal_range'] . $suffix;
+    if ($sf === 'low') {
+        $trendNote = ($prevF !== null && $curF > $prevF)
+            ? "مستوى {$tname} لا يزال أقل من النطاق الطبيعي ({$range})، لكنه في تحسّن مقارنةً بالقراءة السابقة. يُنصح بالاستمرار في الخطة العلاجية ومتابعة الطبيب."
+            : (($prevF !== null && $curF < $prevF)
+                ? "مستوى {$tname} أقل من النطاق الطبيعي ({$range}) وقد انخفض عن القراءة السابقة. يُنصح بمراجعة الطبيب في أقرب وقت."
+                : "مستوى {$tname} أقل من النطاق الطبيعي ({$range}). يُنصح بمراجعة الطبيب لتقييم الحالة ووضع خطة علاجية مناسبة.");
+        $note = $trendNote;
+    } elseif ($sf === 'high') {
+        $trendNote = ($prevF !== null && $curF > $prevF)
+            ? "مستوى {$tname} أعلى من النطاق الطبيعي ({$range}) وقد ارتفع عن القراءة السابقة. يُنصح بمراجعة الطبيب لتعديل الخطة العلاجية."
+            : (($prevF !== null && $curF < $prevF)
+                ? "مستوى {$tname} لا يزال أعلى من النطاق الطبيعي ({$range})، لكنه بدأ بالانخفاض. يُنصح بالمتابعة مع الطبيب للوصول إلى النطاق الطبيعي."
+                : "مستوى {$tname} أعلى من النطاق الطبيعي ({$range}). يُنصح بمراجعة الطبيب لتقييم الأسباب ووضع خطة علاجية مناسبة.");
+        $note = $trendNote;
+    } elseif ($prevF !== null && $curF > $prevF) {
+        $note = "نتيجة {$tname} ضمن النطاق الطبيعي ({$range}) مع تحسّن ملحوظ عن القراءة السابقة. استمر على نفس النهج.";
+    } elseif ($prevF !== null && $curF < $prevF) {
+        $note = "نتيجة {$tname} ضمن النطاق الطبيعي ({$range})، لكنها انخفضت قليلاً عن القراءة السابقة. تابع مع طبيبك للتأكد من استقرار المستوى.";
+    } else {
+        $note = "نتيجة {$tname} مستقرة وضمن النطاق الطبيعي ({$range}). لا يوجد ما يستدعي القلق حالياً.";
+    }
+
+    $comparisonData['test_' . $id] = [
+        'title' => $cur['test_name'] . ' — تطور النتائج',
+        'range' => 'النطاق الطبيعي: ' . $cur['normal_range'] . $suffix,
+        'note'  => $note,
+        'bars'  => $bars,
+    ];
 }
 ?>
 <!DOCTYPE html>
@@ -1357,101 +1487,50 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     <div style="text-align:center">الإجراء</div>
   </div>
 
+<?php if (empty($grouped)): ?>
+  <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد نتائج فحوصات حتى الآن.</div>
+<?php else: ?>
+  <?php foreach ($grouped as $id => $g):
+    $cur  = $g['current'];
+    $prev = $g['previous'];
+    $unit = trim($cur['unit'] ?? '');
+    $suffix = $unit ? ' ' . $unit : '';
+    $key  = 'test_' . $id;
+
+    $sf = $cur['status_flag'];
+    $statusClass = match($sf) { 'low' => 'low', 'high' => 'high', default => 'normal' };
+    $statusLabel = match($sf) { 'low' => 'منخفض', 'high' => 'مرتفع', default => 'طبيعي' };
+    $valClass    = 'val-' . $statusClass;
+
+    if ($prev) {
+      $curF  = (float) $cur['result_value'];
+      $prevF = (float) $prev['result_value'];
+      if      ($curF > $prevF) { $trendClass = 'trend-up';   $trendText = '↑ ارتفع'; }
+      elseif  ($curF < $prevF) { $trendClass = 'trend-down'; $trendText = '↓ انخفض'; }
+      else                     { $trendClass = 'trend-same'; $trendText = '— ثابت'; }
+    } else {
+      $trendClass = ''; $trendText = '';
+    }
+  ?>
   <div class="result-row result-row-6">
-    <div class="test-name">فيتامين د</div>
-    <div class="test-val val-low">١٨ nmol/L</div>
-    <div class="test-val" style="color:#888;font-weight:400">١٢ nmol/L</div>
-    <div class="range-text">٥٠ – ١٢٥</div>
-
-    <div class="result-meta">
-      <span class="mini-status low">منخفض</span>
-      <span class="trend trend-up">↑ ارتفع</span>
+    <div class="test-name"><?= htmlspecialchars($cur['test_name']) ?></div>
+    <div class="test-val <?= $valClass ?>"><?= htmlspecialchars($cur['result_value'] . $suffix) ?></div>
+    <div class="test-val" style="color:#888;font-weight:400">
+      <?= $prev ? htmlspecialchars($prev['result_value'] . $suffix) : '—' ?>
     </div>
-
+    <div class="range-text"><?= htmlspecialchars($cur['normal_range']) ?></div>
+    <div class="result-meta">
+      <span class="mini-status <?= $statusClass ?>"><?= $statusLabel ?></span>
+      <?php if ($trendText): ?>
+        <span class="trend <?= $trendClass ?>"><?= $trendText ?></span>
+      <?php endif; ?>
+    </div>
     <div style="text-align:center;">
-      <button class="compare-btn" onclick="openComparison('vitd')">مقارنة</button>
+      <button class="compare-btn" onclick="openComparison('<?= $key ?>')">مقارنة</button>
     </div>
   </div>
-
-  <div class="result-row result-row-6">
-    <div class="test-name">الكالسيوم</div>
-    <div class="test-val val-normal">٩.١ mg/dL</div>
-    <div class="test-val" style="color:#888;font-weight:400">٨.٨ mg/dL</div>
-    <div class="range-text">٨.٦ – ١٠.٢</div>
-
-    <div class="result-meta">
-      <span class="mini-status normal">طبيعي</span>
-      <span class="trend trend-up">↑ ارتفع</span>
-    </div>
-
-    <div style="text-align:center;">
-      <button class="compare-btn" onclick="openComparison('calcium')">مقارنة</button>
-    </div>
-  </div>
-
-  <div class="result-row result-row-6">
-    <div class="test-name">الهيموجلوبين</div>
-    <div class="test-val val-normal">١٣.٢ g/dL</div>
-    <div class="test-val" style="color:#888;font-weight:400">١٣.٠ g/dL</div>
-    <div class="range-text">١٢ – ١٦</div>
-
-    <div class="result-meta">
-      <span class="mini-status normal">طبيعي</span>
-      <span class="trend trend-same">— ثابت</span>
-    </div>
-
-    <div style="text-align:center;">
-      <button class="compare-btn" onclick="openComparison('hb')">مقارنة</button>
-    </div>
-  </div>
-
-  <div class="result-row result-row-6">
-    <div class="test-name">فيتامين ب١٢</div>
-    <div class="test-val val-normal">٣٢٠ pg/mL</div>
-    <div class="test-val" style="color:#888;font-weight:400">٢٩٠ pg/mL</div>
-    <div class="range-text">٢٠٠ – ٩٠٠</div>
-
-    <div class="result-meta">
-      <span class="mini-status normal">طبيعي</span>
-      <span class="trend trend-up">↑ ارتفع</span>
-    </div>
-
-    <div style="text-align:center;">
-      <button class="compare-btn" onclick="openComparison('b12')">مقارنة</button>
-    </div>
-  </div>
-
-  <div class="result-row result-row-6">
-    <div class="test-name">الحديد</div>
-    <div class="test-val val-low">٥٥ µg/dL</div>
-    <div class="test-val" style="color:#888;font-weight:400">٦٢ µg/dL</div>
-    <div class="range-text">٦٠ – ١٧٠</div>
-
-    <div class="result-meta">
-      <span class="mini-status low">منخفض</span>
-      <span class="trend trend-down">↓ انخفض</span>
-    </div>
-
-    <div style="text-align:center;">
-      <button class="compare-btn" onclick="openComparison('iron')">مقارنة</button>
-    </div>
-  </div>
-
-  <div class="result-row result-row-6">
-    <div class="test-name">الكوليسترول الكلي</div>
-    <div class="test-val val-high">٢١٥ mg/dL</div>
-    <div class="test-val" style="color:#888;font-weight:400">١٩٨ mg/dL</div>
-    <div class="range-text">&lt; ٢٠٠</div>
-
-    <div class="result-meta">
-      <span class="mini-status high">مرتفع</span>
-      <span class="trend trend-up">↑ ارتفع</span>
-    </div>
-
-    <div style="text-align:center;">
-      <button class="compare-btn" onclick="openComparison('chol')">مقارنة</button>
-    </div>
-  </div>
+  <?php endforeach; ?>
+<?php endif; ?>
 
   <!-- Comparison -->
   <div id="comparison-box" style="display:none;margin-top:24px;padding-top:20px;border-top:1px solid #f0ebe4;">
@@ -1480,73 +1559,7 @@ function showSection(name, el) {
   if (el) el.classList.add('active');
 }
 
-const comparisonData = {
-  vitd: {
-    title: 'فيتامين د — تطور النتائج',
-    range: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L',
-    note: 'مستوى فيتامين د لا يزال منخفضًا عن النطاق الطبيعي. يُنصح بالاستمرار في الجرعات الموصوفة وإعادة الفحص بعد شهرين.',
-    bars: [
-      { label: '٨ ديسمبر ٢٠٢٥', value: '١٢ nmol/L', width: '10%', color: '#7e3b3b' },
-      { label: '٨ فبراير ٢٠٢٦', value: '١٨ nmol/L', width: '16%', color: '#bfa27a' },
-      { label: 'المستهدف', value: '+٥٠ nmol/L', width: '50%', color: '#97b494' }
-    ]
-  },
-
-  calcium: {
-    title: 'الكالسيوم — تطور النتائج',
-    range: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL',
-    note: 'نتيجة الكالسيوم ضمن النطاق الطبيعي مع تحسن بسيط عن القراءة السابقة.',
-    bars: [
-      { label: '٨ يناير ٢٠٢٦', value: '٨.٨ mg/dL', width: '62%', color: '#bfa27a' },
-      { label: '٨ مارس ٢٠٢٦', value: '٩.١ mg/dL', width: '65%', color: '#2d7a3a' },
-      { label: 'النطاق الطبيعي', value: '٨.٦–١٠.٢', width: '72%', color: '#97b494' }
-    ]
-  },
-
-  hb: {
-    title: 'الهيموجلوبين — تطور النتائج',
-    range: 'النطاق الطبيعي: ١٢ – ١٦ g/dL',
-    note: 'النتيجة مستقرة وضمن النطاق الطبيعي.',
-    bars: [
-      { label: '٥ فبراير ٢٠٢٦', value: '١٣.٠ g/dL', width: '65%', color: '#bfa27a' },
-      { label: '٥ مارس ٢٠٢٦', value: '١٣.٢ g/dL', width: '66%', color: '#2d7a3a' },
-      { label: 'النطاق المستهدف', value: '١٢–١٦', width: '80%', color: '#97b494' }
-    ]
-  },
-
-  b12: {
-    title: 'فيتامين ب١٢ — تطور النتائج',
-    range: 'النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL',
-    note: 'النتيجة الحالية ضمن الطبيعي مع تحسن ملحوظ عن القراءة السابقة.',
-    bars: [
-      { label: '١٠ يناير ٢٠٢٦', value: '٢٩٠ pg/mL', width: '32%', color: '#bfa27a' },
-      { label: '١٠ مارس ٢٠٢٦', value: '٣٢٠ pg/mL', width: '36%', color: '#2d7a3a' },
-      { label: 'النطاق الطبيعي', value: '٢٠٠–٩٠٠', width: '75%', color: '#97b494' }
-    ]
-  },
-
-  iron: {
-    title: 'الحديد — تطور النتائج',
-    range: 'النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL',
-    note: 'مستوى الحديد أقل من الطبيعي حاليًا، ويحتاج متابعة غذائية أو علاجية حسب توصية الطبيب.',
-    bars: [
-      { label: '١ مارس ٢٠٢٦', value: '٦٢ µg/dL', width: '36%', color: '#bfa27a' },
-      { label: '١٧ مارس ٢٠٢٦', value: '٥٥ µg/dL', width: '32%', color: '#c8860a' },
-      { label: 'النطاق الطبيعي', value: '٦٠–١٧٠', width: '68%', color: '#97b494' }
-    ]
-  },
-
-  chol: {
-    title: 'الكوليسترول الكلي — تطور النتائج',
-    range: 'النطاق الطبيعي: أقل من ٢٠٠ mg/dL',
-    note: 'النتيجة الحالية أعلى من الطبيعي، ويُنصح بتحسين نمط الحياة وإعادة الفحص لاحقًا.',
-    bars: [
-      { label: '١ يناير ٢٠٢٦', value: '١٩٨ mg/dL', width: '66%', color: '#bfa27a' },
-      { label: '١ مارس ٢٠٢٦', value: '٢١٥ mg/dL', width: '72%', color: '#c42a2a' },
-      { label: 'الحد الأعلى الطبيعي', value: '٢٠٠ mg/dL', width: '67%', color: '#97b494' }
-    ]
-  }
-};
+const comparisonData = <?= json_encode($comparisonData, JSON_UNESCAPED_UNICODE) ?>;
 
 function openComparison(key) {
   const data = comparisonData[key];

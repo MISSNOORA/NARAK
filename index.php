@@ -6,10 +6,10 @@ if (isset($_SESSION['role'])) {
         header("Location: customer-dashboard.php");
         exit;
     } elseif ($_SESSION['role'] === 'lab') {
-        header("Location: lab-dashboard.html");
+        header("Location: lab-dashboard.php");
         exit;
     } elseif ($_SESSION['role'] === 'admin') {
-        header("Location: admin-dashboard.html");
+        header("Location: admin-dashboard.php");
         exit;
     }
 }

@@ -14,12 +14,6 @@ $labId = $_SESSION['user_id'];
 ?>
 
 
-
-
-
-
-
-
 <?php
 $today = date("Y-m-d");
 $currentMonth = date("Y-m");
