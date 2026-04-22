@@ -14,25 +14,33 @@ if (isset($_SESSION['role'])) {
     }
 }
 ?>
-<?php if (isset($_GET['error'])): ?>
-
-  <?php if ($_GET['error'] == 'missing_fields'): ?>
-    <p style="color:red;">الرجاء تعبئة جميع الحقول</p>
-  <?php endif; ?>
-
-  <?php if ($_GET['error'] == 'invalid_email'): ?>
-    <p style="color:red;">البريد الإلكتروني غير صحيح</p>
-  <?php endif; ?>
-
-  <?php if ($_GET['error'] == 'email_exists'): ?>
-    <p style="color:red;">هذا البريد الإلكتروني مسجل مسبقًا</p>
-  <?php endif; ?>
-
-  <?php if ($_GET['error'] == 'phone_exists'): ?>
-    <p style="color:red;">رقم الجوال مستخدم مسبقًا</p>
-  <?php endif; ?>
-
-<?php endif; ?>
+<?php
+$active_panel = $_GET['panel'] ?? 'login';
+$signup_form  = $_SESSION['signup_form'] ?? [];
+unset($_SESSION['signup_form']);
+$error_msg = '';
+if (isset($_GET['error'])) {
+    switch ($_GET['error']) {
+        case 'missing_fields':   $error_msg = 'الرجاء تعبئة جميع الحقول'; break;
+        case 'missing_name':     $error_msg = 'الرجاء إدخال الاسم الأول واسم العائلة'; break;
+        case 'missing_email':    $error_msg = 'الرجاء إدخال البريد الإلكتروني'; break;
+        case 'missing_phone':    $error_msg = 'الرجاء إدخال رقم الجوال'; break;
+        case 'missing_password': $error_msg = 'الرجاء إدخال كلمة المرور'; break;
+        case 'invalid_email':    $error_msg = 'البريد الإلكتروني غير صحيح'; break;
+        case 'email_exists':     $error_msg = 'هذا البريد الإلكتروني مسجل مسبقًا'; break;
+        case 'phone_exists':     $error_msg = 'رقم الجوال مستخدم مسبقًا'; break;
+        case 'invalid_name':     $error_msg = 'الاسم يجب أن يكون باللغة العربية فقط'; break;
+        case 'invalid_phone':    $error_msg = 'رقم الجوال يجب أن يكون 10 أرقام فقط'; break;
+        case 'password_too_short': $error_msg = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'; break;
+        case 'invalid_address':  $error_msg = 'رابط الموقع غير صحيح'; break;
+        case 'signup_failed':    $error_msg = 'حدث خطأ أثناء إنشاء الحساب، حاول مرة أخرى'; break;
+        case 'empty_login':      $error_msg = 'الرجاء تعبئة جميع الحقول'; break;
+        case 'wrong_password':   $error_msg = 'كلمة المرور غير صحيحة'; break;
+        case 'user_not_found':   $error_msg = 'البريد الإلكتروني غير مسجل'; break;
+        case 'invalid_role':     $error_msg = 'نوع الحساب غير صحيح'; break;
+    }
+}
+?>
     
     
 <!DOCTYPE html>
@@ -263,6 +271,7 @@ if (isset($_SESSION['role'])) {
   input[type="email"],
   input[type="password"],
   input[type="tel"],
+  input[type="url"],
   select {
     width: 100%;
     padding: 13px 16px;
@@ -412,6 +421,32 @@ if (isset($_SESSION['role'])) {
     background: var(--deep-red);
     color: #fff;
   }
+
+  .field-hint {
+    display: block;
+    font-size: 0.78rem;
+    color: #c0392b;
+    margin-top: 5px;
+    font-weight: 600;
+  }
+
+  .optional-tag {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: #aaa;
+  }
+
+  .error-msg {
+    background: #fff0f0;
+    border: 1px solid #f5c6c6;
+    color: #c0392b;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    text-align: right;
+  }
 </style>
 </head>
 <body>
@@ -480,6 +515,10 @@ if (isset($_SESSION['role'])) {
 
     <a href="#" class="forgot">نسيت كلمة المرور؟</a>
 
+    <?php if ($active_panel === 'login' && $error_msg): ?>
+      <div class="error-msg"><?= htmlspecialchars($error_msg) ?></div>
+    <?php endif; ?>
+
     <button class="btn-primary" type="submit">تسجيل الدخول</button>
   </div>
 </form>
@@ -495,20 +534,25 @@ if (isset($_SESSION['role'])) {
           <div class="form-group">
             <label>الاسم الأول</label>
             <input type="text" name="first_name" placeholder="الاسم الأول" required
-                oninvalid="this.setCustomValidity('الرجاء إدخال الاسم الأول')"
+                pattern="[؀-ۿ\s]+"
+                value="<?= htmlspecialchars($signup_form['first_name'] ?? '') ?>"
+                oninvalid="this.setCustomValidity('الاسم يجب أن يكون باللغة العربية فقط')"
                 oninput="this.setCustomValidity('')">
           </div>
           <div class="form-group">
             <label>اسم العائلة</label>
-            <input type="text" name="last_name"  placeholder="اسم العائلة" required
-                oninvalid="this.setCustomValidity('الرجاء إدخال الاسم الأخير')"
+            <input type="text" name="last_name" placeholder="اسم العائلة" required
+                pattern="[؀-ۿ\s]+"
+                value="<?= htmlspecialchars($signup_form['last_name'] ?? '') ?>"
+                oninvalid="this.setCustomValidity('الاسم يجب أن يكون باللغة العربية فقط')"
                 oninput="this.setCustomValidity('')">
           </div>
         </div>
 
         <div class="form-group">
           <label>البريد الإلكتروني</label>
-          <input type="email" name="email"  placeholder="example@email.com" required
+          <input type="email" name="email" placeholder="example@email.com" required
+            value="<?= htmlspecialchars($signup_form['email'] ?? '') ?>"
             oninvalid="this.setCustomValidity('الرجاء إدخال بريد إلكتروني صحيح')"
             oninput="this.setCustomValidity('')">
         </div>
@@ -516,21 +560,33 @@ if (isset($_SESSION['role'])) {
         <div class="form-group">
           <label>رقم الجوال</label>
           <input type="tel" name="phone" placeholder="05xxxxxxxx" required
-            oninvalid="this.setCustomValidity('الرجاء إدخال رقم الجوال')"
+            pattern="[0-9]{10}"
+            value="<?= htmlspecialchars($signup_form['phone'] ?? '') ?>"
+            oninvalid="this.setCustomValidity('رقم الجوال يجب أن يكون 10 أرقام فقط')"
             oninput="this.setCustomValidity('')">
         </div>
 
         <div class="form-group">
           <label>كلمة المرور</label>
-          <input type="password" name="password" placeholder="••••••••" required
-            oninvalid="this.setCustomValidity('الرجاء إدخال كلمة المرور')"
+          <input type="password" name="password"
+            placeholder="<?= ($active_panel === 'signup' && $error_msg) ? 'أعد إدخال كلمة المرور' : '••••••••' ?>"
+            required minlength="8"
+            oninvalid="this.setCustomValidity('كلمة المرور يجب أن تكون 8 أحرف على الأقل')"
             oninput="this.setCustomValidity('')">
+          <?php if ($active_panel === 'signup' && $error_msg): ?>
+            <span class="field-hint">يرجى إعادة إدخال كلمة المرور</span>
+          <?php endif; ?>
         </div>
-          
+
         <div class="form-group">
-          <label> موقع المنزل </label>
-          <input type="url" name="address" placeholder="رابط">
+          <label>موقع المنزل <span class="optional-tag">(اختياري)</span></label>
+          <input type="url" name="address" placeholder="https://maps.google.com/..."
+            value="<?= htmlspecialchars($signup_form['address'] ?? '') ?>">
         </div>
+
+        <?php if ($active_panel === 'signup' && $error_msg): ?>
+          <div class="error-msg"><?= htmlspecialchars($error_msg) ?></div>
+        <?php endif; ?>
 
         <button class="btn-primary" type="submit">إنشاء الحساب</button>
       </div>
@@ -553,6 +609,15 @@ function showPanel(name, btn) {
   btn.classList.remove('inactive');
 }
 
+document.addEventListener('DOMContentLoaded', function () {
+  var panel = <?= json_encode($active_panel) ?>;
+  if (panel !== 'login') {
+    var tabs = document.querySelectorAll('.side-tab');
+    // tabs[0] = login, tabs[1] = signup
+    var idx = panel === 'signup' ? 1 : 0;
+    showPanel(panel, tabs[idx]);
+  }
+});
 </script>
 <script>
 document.querySelectorAll('.role-selector .role-btn').forEach(label => {

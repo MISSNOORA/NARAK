@@ -16,25 +16,43 @@ $phone     = trim($_POST["phone"] ?? "");
 $password  = $_POST["password"] ?? "";
 $address   = trim($_POST["address"] ?? "");
 
-if (
-    empty($firstName) ||
-    empty($lastName) ||
-    empty($email) ||
-    empty($phone) ||
-    empty($password)
-) {
-    header("Location: index.php?error=missing_fields");
+$_SESSION['signup_form'] = [
+    'first_name' => $firstName,
+    'last_name'  => $lastName,
+    'email'      => $email,
+    'phone'      => $phone,
+    'address'    => $address,
+];
+
+function redirect_signup_error(string $code): never {
+    header("Location: index.php?panel=signup&error=$code");
     exit;
+}
+
+if (empty($firstName) || empty($lastName)) redirect_signup_error('missing_name');
+if (empty($email))     redirect_signup_error('missing_email');
+if (empty($phone))     redirect_signup_error('missing_phone');
+if (empty($password))  redirect_signup_error('missing_password');
+
+if (!preg_match('/^[\x{0600}-\x{06FF}\s]+$/u', $firstName) ||
+    !preg_match('/^[\x{0600}-\x{06FF}\s]+$/u', $lastName)) {
+    redirect_signup_error('invalid_name');
+}
+
+if (!preg_match('/^\d{10}$/', $phone)) {
+    redirect_signup_error('invalid_phone');
+}
+
+if (strlen($password) < 8) {
+    redirect_signup_error('password_too_short');
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    header("Location: index.php?error=invalid_email");
-    exit;
+    redirect_signup_error('invalid_email');
 }
 
 if (!empty($address) && !filter_var($address, FILTER_VALIDATE_URL)) {
-    header("Location: index.php?error=invalid_address");
-    exit;
+    redirect_signup_error('invalid_address');
 }
 
 $checkSql = "SELECT customer_id FROM customer WHERE email = ?";
@@ -50,7 +68,7 @@ mysqli_stmt_store_result($stmt);
 
 if (mysqli_stmt_num_rows($stmt) > 0) {
     mysqli_stmt_close($stmt);
-    header("Location: index.php?error=email_exists");
+    header("Location: index.php?panel=signup&error=email_exists");
     exit;
 }
 
@@ -79,6 +97,7 @@ mysqli_stmt_bind_param(
 );
 
 if (mysqli_stmt_execute($stmt)) {
+    unset($_SESSION['signup_form']);
     $_SESSION["user_id"] = mysqli_insert_id($conn);
     $_SESSION["role"] = "customer";
     $_SESSION["full_name"] = $firstName . " " . $lastName;
@@ -89,7 +108,7 @@ if (mysqli_stmt_execute($stmt)) {
     exit;
 } else {
     mysqli_stmt_close($stmt);
-    header("Location: index.php?error=signup_failed");
+    header("Location: index.php?panel=signup&error=signup_failed");
     exit;
 }
 ?>
