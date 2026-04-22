@@ -128,6 +128,75 @@ while ($row = mysqli_fetch_assoc($rsPast)) {
     }
 }
 
+// ── Upcoming appointments (pending / confirmed / in-progress) ──────────────
+$sqlUpcoming = "
+    SELECT
+        a.appointment_id,
+        a.status,
+        l.lab_name,
+        ts.slot_date,
+        ts.slot_time,
+        GROUP_CONCAT(tt.test_name ORDER BY tt.test_name SEPARATOR ' — ') AS tests
+    FROM appointment a
+    JOIN laboratory  l   ON a.lab_id  = l.lab_id
+    JOIN time_slot   ts  ON a.slot_id = ts.slot_id
+    LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+    LEFT JOIN test_type             tt  ON att.test_type_id = tt.test_type_id
+    WHERE a.customer_id = ?
+      AND a.status IN ('pending','confirmed','in_progress')
+    GROUP BY a.appointment_id, l.lab_name, ts.slot_date, ts.slot_time, a.status
+    ORDER BY ts.slot_date ASC, ts.slot_time ASC
+";
+$stmtUp = mysqli_prepare($conn, $sqlUpcoming);
+mysqli_stmt_bind_param($stmtUp, 'i', $customerId);
+mysqli_stmt_execute($stmtUp);
+$rsUp = mysqli_stmt_get_result($stmtUp);
+$upcomingAppointments = mysqli_fetch_all($rsUp, MYSQLI_ASSOC);
+
+// Arabic day names
+function arabicDayName(string $ymd): string {
+    static $days = ['Sunday'=>'الأحد','Monday'=>'الاثنين','Tuesday'=>'الثلاثاء',
+                    'Wednesday'=>'الأربعاء','Thursday'=>'الخميس','Friday'=>'الجمعة','Saturday'=>'السبت'];
+    $ts = strtotime($ymd);
+    return $ts ? ($days[date('l', $ts)] . '، ' . arabicDate($ymd)) : $ymd;
+}
+
+// ── Available laboratories with their test types ───────────────────────────
+$sqlLabs = "
+    SELECT
+        l.lab_id,
+        l.lab_name,
+        l.address,
+        l.lab_logo,
+        GROUP_CONCAT(tt.test_name ORDER BY tt.test_name SEPARATOR ',') AS test_names,
+        GROUP_CONCAT(tt.price     ORDER BY tt.test_name SEPARATOR ',') AS test_prices,
+        GROUP_CONCAT(COALESCE(tt.unit,'') ORDER BY tt.test_name SEPARATOR ',') AS test_units
+    FROM laboratory l
+    JOIN test_type tt ON tt.lab_id = l.lab_id
+    GROUP BY l.lab_id
+    ORDER BY l.lab_name
+";
+$rsLabs = mysqli_query($conn, $sqlLabs);
+$labsList = $rsLabs ? mysqli_fetch_all($rsLabs, MYSQLI_ASSOC) : [];
+
+// ── Dashboard stats ────────────────────────────────────────────────────────
+$sqlStats = "
+    SELECT
+        SUM(a.status IN ('pending','confirmed','in_progress'))          AS active_appointments,
+        SUM(a.status = 'completed')                                     AS completed_tests,
+        COUNT(DISTINCT CASE WHEN a.status = 'completed' THEN a.lab_id END) AS labs_used
+    FROM appointment a
+    WHERE a.customer_id = ?
+";
+$stmtStats = mysqli_prepare($conn, $sqlStats);
+mysqli_stmt_bind_param($stmtStats, 'i', $customerId);
+mysqli_stmt_execute($stmtStats);
+$stats = mysqli_fetch_assoc(mysqli_stmt_get_result($stmtStats));
+
+$activeCount    = (int)($stats['active_appointments'] ?? 0);
+$completedCount = (int)($stats['completed_tests']     ?? 0);
+$labsUsed       = (int)($stats['labs_used']           ?? 0);
+
 // Build comparisonData array for JS
 $comparisonData = [];
 foreach ($grouped as $id => $g) {
@@ -1131,25 +1200,25 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     <div class="page-header">
       <div class="page-title">
         <h1>مرحباً، <?php echo htmlspecialchars($_SESSION['full_name']); ?> 👋</h1>
-        <p>الثلاثاء، ١٠ مارس ٢٠٢٦</p>
+        <p><?= arabicDayName(date('Y-m-d')) ?></p>
       </div>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-num">٣</div>
+        <div class="stat-num"><?= $activeCount ?></div>
         <div class="stat-label">مواعيد نشطة</div>
       </div>
       <div class="stat-card">
-        <div class="stat-num">١٢</div>
+        <div class="stat-num"><?= $completedCount ?></div>
         <div class="stat-label">فحوصات مكتملة</div>
       </div>
       <div class="stat-card">
-        <div class="stat-num">٥</div>
+        <div class="stat-num"><?= count($grouped) ?></div>
         <div class="stat-label">تقارير محفوظة</div>
       </div>
       <div class="stat-card">
-        <div class="stat-num">٢</div>
+        <div class="stat-num"><?= $labsUsed ?></div>
         <div class="stat-label">مختبرات مستخدمة</div>
       </div>
     </div>
@@ -1164,53 +1233,43 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           </div>
         </div>
 
-        <div class="appointment-item appointment-item-actions"
-            data-lab="مختبرات البرج"
-            data-tests="فيتامين ب١٢"
-            data-date="2026-03-17"
-            data-time="10:00">
-            
-          <div class="appt-info">
-            <h4>فيتامين ب١٢ </h4>
-            <div class="lab-name">مختبرات البرج</div>
-            <p>الثلاثاء، ١٧ مارس — ١٠:٠٠ ص</p>
-          </div>
+        <?php if (empty($upcomingAppointments)): ?>
+          <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد مواعيد قادمة حالياً.</div>
+        <?php else: ?>
+          <?php foreach ($upcomingAppointments as $ua):
+            $statusMap = [
+              'pending'     => ['label' => 'في الانتظار', 'class' => 'status-pending',   'canEdit' => true],
+              'confirmed'   => ['label' => 'مؤكد',        'class' => 'status-confirmed',  'canEdit' => false],
+              'in_progress' => ['label' => 'قيد التنفيذ', 'class' => 'status-progress',   'canEdit' => false],
+            ];
+            $sm = $statusMap[$ua['status']] ?? ['label' => $ua['status'], 'class' => 'status-pending', 'canEdit' => false];
+            $testsLabel = $ua['tests'] ?: '—';
+          ?>
+          <div class="appointment-item appointment-item-actions"
+               data-lab="<?= htmlspecialchars($ua['lab_name']) ?>"
+               data-tests="<?= htmlspecialchars($ua['tests'] ?? '') ?>"
+               data-date="<?= htmlspecialchars($ua['slot_date']) ?>"
+               data-time="<?= htmlspecialchars($ua['slot_time']) ?>">
 
-          <div class="appointment-side">
-            <span class="status-badge status-pending">في الانتظار</span>
-            <div class="appointment-actions">
-              <button class="appt-action-btn" onclick="openEditModal(this)">تعديل</button>
-              <button class="appt-action-btn danger">إلغاء</button>
+            <div class="appt-info">
+              <h4><?= htmlspecialchars($testsLabel) ?></h4>
+              <div class="lab-name"><?= htmlspecialchars($ua['lab_name']) ?></div>
+              <p><?= arabicDayName($ua['slot_date']) ?> — <?= formatSlotTime($ua['slot_time']) ?></p>
+            </div>
+
+            <div class="appointment-side">
+              <span class="status-badge <?= $sm['class'] ?>"><?= $sm['label'] ?></span>
+              <div class="appointment-actions">
+                <?php if ($sm['canEdit']): ?>
+                  <button class="appt-action-btn" onclick="openEditModal(this)">تعديل</button>
+                  <button class="appt-action-btn danger"
+                          onclick="cancelAppointment(this, <?= $ua['appointment_id'] ?>)">إلغاء</button>
+                <?php endif; ?>
+              </div>
             </div>
           </div>
-        </div>
-               <div class="appointment-item appointment-item-actions">
-        <div class="appt-info">
-          <h4>فيتامين د — الكوليسترول الكلي</h4>
-          <div class="lab-name">مختبر الوريد الطبيه </div>
-          <p>الأحد، ١٥ مارس — ٨:٣٠ ص</p>
-        </div>
-
-        <div class="appointment-side">
-          <span class="status-badge status-progress">قيد التنفيذ</span>
-          <div class="appointment-actions">
-          </div>
-        </div>
-      </div>
-
-        <div class="appointment-item appointment-item-actions">
-          <div class="appt-info">
-            <h4>فيتامين د — الحديد</h4>
-            <div class="lab-name">عيادات النهدي كير</div>
-            <p>الخميس، ١٢ مارس — ٩:٠٠ ص</p>
-          </div>
-
-          <div class="appointment-side">
-            <span class="status-badge status-done">مكتمل</span>
-            <div class="appointment-actions">
-            </div>
-          </div>
-        </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
     </div>
       
       <!-- Available Labs -->
@@ -1226,131 +1285,64 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
         </div>
           
         <div id="labsListContainer" style="display:flex;flex-direction:column;gap:12px;">
-                    <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,هيموجلوبين">
-          <div class="lab-top">
-            <img src="images/habib.png" alt="habib-logo" class="lab-avatar">
-            <div class="lab-meta">
-              <div class="lab-name-text">مختبرات مجموعة الدكتور سليمان الحبيب الطبية</div>
-              <p> الرياض</p>
+          <?php if (empty($labsList)): ?>
+            <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد مختبرات متاحة حالياً.</div>
+          <?php else: ?>
+            <?php foreach ($labsList as $lab):
+              $testNamesArr  = explode(',', $lab['test_names'] ?? '');
+              $testPricesArr = explode(',', $lab['test_prices'] ?? '');
+              $testUnitsArr  = explode(',', $lab['test_units'] ?? '');
+              $testsPillsCsv = htmlspecialchars($lab['test_names'] ?? '');
 
-              <div class="lab-tests-list">
-                <span class="test-pill">فيتامين د</span>
-                <span class="test-pill"> كالسيوم</span>
-                <span class="test-pill">هيموجلوبين </span>
+              $jsTests = [];
+              foreach ($testNamesArr as $i => $tName) {
+                  $price = (float)($testPricesArr[$i] ?? 0);
+                  $unit  = trim($testUnitsArr[$i] ?? '');
+                  $desc  = $unit ? 'الوحدة: ' . $unit : '';
+                  $jsTests[] = sprintf(
+                      '{name:%s,price:%s,desc:%s}',
+                      json_encode($tName, JSON_UNESCAPED_UNICODE),
+                      json_encode($price, JSON_UNESCAPED_UNICODE),
+                      json_encode($desc,  JSON_UNESCAPED_UNICODE)
+                  );
+              }
+              $jsTestsStr = '[' . implode(',', $jsTests) . ']';
+              $logoPath   = htmlspecialchars($lab['lab_logo'] ?? '');
+              $city       = htmlspecialchars($lab['address'] ?? '');
+              $labNameJs  = json_encode($lab['lab_name'], JSON_UNESCAPED_UNICODE);
+              $cityJs     = json_encode($lab['address']  ?? '', JSON_UNESCAPED_UNICODE);
+              $logoJs     = json_encode($lab['lab_logo'] ?? '', JSON_UNESCAPED_UNICODE);
+            ?>
+            <div class="lab-card-clean lab-item-searchable"
+                 data-tests="<?= $testsPillsCsv ?>">
+              <div class="lab-top">
+                <?php if ($logoPath): ?>
+                  <img src="<?= $logoPath ?>" alt="<?= htmlspecialchars($lab['lab_name']) ?>" class="lab-avatar">
+                <?php else: ?>
+                  <div class="lab-avatar">🔬</div>
+                <?php endif; ?>
+                <div class="lab-meta">
+                  <div class="lab-name-text"><?= htmlspecialchars($lab['lab_name']) ?></div>
+                  <p>الرياض</p>
+                  <div class="lab-tests-list">
+                    <?php foreach ($testNamesArr as $pill): ?>
+                      <span class="test-pill"><?= htmlspecialchars($pill) ?></span>
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lab-bottom">
+                <span class="home-service">✓ زيارة منزلية</span>
+                <button class="btn btn-primary book-btn-small"
+                        onclick='openBookingModal(<?= $labNameJs ?>,<?= $cityJs ?>,<?= $logoJs ?>,<?= $jsTestsStr ?>)'>
+                  حجز موعد
+                </button>
               </div>
             </div>
-          </div>
-
-          <div class="lab-bottom">
-            <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small"
-            onclick='openBookingModal(
-            "مجموعة الدكتور سليمان الحبيب الطبية",
-            "الرياض",
-            "images/habib.png",
-            [
-              { name: "فيتامين د", price: 120, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
-              { name: "كالسيوم", price: 90, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
-              { name: "هيموجلوبين", price: 85, desc: "النطاق الطبيعي: ١٢ – ١٦ g/dL" }
-            ]
-            )'>حجز موعد</button>
-          </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
         </div>
-
-        <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,فيتامين ب١٢">
-          <div class="lab-top">
-            <img src="images/borg.png" alt="borg-logo" class="lab-avatar">
-            <div class="lab-meta">
-              <div class="lab-name-text">مختبرات البرج</div>
-              <p> الرياض</p>
-
-              <div class="lab-tests-list">
-                <span class="test-pill">فيتامين د</span>
-                <span class="test-pill"> كالسيوم</span>
-                <span class="test-pill">فيتامين ب١٢ </span>
-              </div>
-            </div>
-          </div>
-
-          <div class="lab-bottom">
-            <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small"
-                onclick='openBookingModal(
-                "مختبرات البرج",
-                "الرياض",
-                "images/borg.png",
-                [
-                  { name: "فيتامين د", price: 110, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
-                  { name: "كالسيوم", price: 95, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
-                  { name: "فيتامين ب١٢", price: 135, desc: "النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL" }
-                ]
-                )'>حجز موعد</button>
-          </div>
-        </div>
-
-        <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,الحديد">
-          <div class="lab-top">
-            <img src="images/nahdi.png" alt="nahdi-logo" class="lab-avatar">
-            <div class="lab-meta">
-              <div class="lab-name-text">عيادات النهدي كير </div>
-              <p> الرياض</p>
-
-              <div class="lab-tests-list">
-                <span class="test-pill">فيتامين د</span>
-                <span class="test-pill"> كالسيوم</span>
-                <span class="test-pill"> الحديد</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="lab-bottom">
-            <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small"
-            onclick='openBookingModal(
-            "عيادات النهدي كير",
-            "الرياض",
-            "images/nahdi.png",
-            [
-              { name: "فيتامين د", price: 100, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
-              { name: "كالسيوم", price: 88, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
-              { name: "الحديد", price: 115, desc: "النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL" }
-            ]
-            )'>حجز موعد</button>
-          </div>
-        </div>
-          
-        <div class="lab-card-clean lab-item-searchable" data-tests="فيتامين د,كالسيوم,الكوليسترول الكلي">
-          <div class="lab-top">
-            <img src="images/wared.png" alt="wared-logo" class="lab-avatar">
-            <div class="lab-meta">
-              <div class="lab-name-text">مختبرات وريد الطيبه </div>
-              <p> الرياض</p>
-
-              <div class="lab-tests-list">
-                <span class="test-pill">فيتامين د</span>
-                <span class="test-pill"> كالسيوم</span>
-                <span class="test-pill"> الكوليسترول الكلي</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="lab-bottom">
-            <span class="home-service">✓ زيارة منزلية</span>
-            <button class="btn btn-primary book-btn-small"
-            onclick='openBookingModal(
-            "مختبرات وريد الطبية",
-            "الرياض",
-            "images/wared.png",
-            [
-              { name: "فيتامين د", price: 115, desc: "النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L" },
-              { name: "كالسيوم", price: 92, desc: "النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL" },
-              { name: "الكوليسترول الكلي", price: 125, desc: "النطاق الطبيعي: أقل من ٢٠٠ mg/dL" }
-            ]
-            )'>حجز موعد</button>
-          </div>
-        </div>
-        </div>
-      </div>
       
   <div class="booking-overlay" id="bookingOverlay">
   <div class="booking-modal">
@@ -1401,15 +1393,15 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
           <label>اختر الوقت</label>
           <select id="bookingTime">
             <option value="">اختر الوقت</option>
-            <option>٨:٠٠ ص</option>
-            <option>٩:٠٠ ص</option>
-            <option>١٠:٠٠ ص</option>
-            <option>١١:٠٠ ص</option>
-            <option>١٢:٠٠ م</option>
-            <option>١:٠٠ م</option>
-            <option>٢:٠٠ م</option>
-            <option>٣:٠٠ م</option>
-            <option>٤:٠٠ م</option>
+            <option value="08:00:00">٨:٠٠ ص</option>
+            <option value="09:00:00">٩:٠٠ ص</option>
+            <option value="10:00:00">١٠:٠٠ ص</option>
+            <option value="11:00:00">١١:٠٠ ص</option>
+            <option value="12:00:00">١٢:٠٠ م</option>
+            <option value="13:00:00">١:٠٠ م</option>
+            <option value="14:00:00">٢:٠٠ م</option>
+            <option value="15:00:00">٣:٠٠ م</option>
+            <option value="16:00:00">٤:٠٠ م</option>
           </select>
         </div>
       </div>
@@ -1612,8 +1604,46 @@ function openComparison(key) {
   item.classList.toggle('open');
 }
   
-let selectedLabName = '';
-let selectedLabTests = [];
+// Build labsData from DB for the edit modal
+const labsData = {
+<?php foreach ($labsList as $lab):
+  $testNamesArr  = explode(',', $lab['test_names'] ?? '');
+  $testPricesArr = explode(',', $lab['test_prices'] ?? '');
+  $testUnitsArr  = explode(',', $lab['test_units'] ?? '');
+  $jsTests = [];
+  foreach ($testNamesArr as $i => $tName) {
+      $price = (float)($testPricesArr[$i] ?? 0);
+      $unit  = trim($testUnitsArr[$i] ?? '');
+      $desc  = $unit ? 'الوحدة: ' . $unit : '';
+      $jsTests[] = sprintf('{name:%s,price:%s,desc:%s}',
+          json_encode($tName, JSON_UNESCAPED_UNICODE),
+          json_encode($price, JSON_UNESCAPED_UNICODE),
+          json_encode($desc,  JSON_UNESCAPED_UNICODE));
+  }
+  echo json_encode($lab['lab_name'], JSON_UNESCAPED_UNICODE) . ':['
+      . implode(',', $jsTests) . '],';
+endforeach; ?>
+};
+
+function cancelAppointment(btn, appointmentId) {
+  if (!confirm('هل أنت متأكد من إلغاء هذا الموعد؟')) return;
+  fetch('cancel_appointment.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'appointment_id=' + appointmentId
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      btn.closest('.appointment-item').remove();
+    } else {
+      alert('تعذّر الإلغاء: ' + (data.message || 'خطأ غير متوقع'));
+    }
+  })
+  .catch(() => alert('حدث خطأ في الاتصال بالخادم'));
+}
+
+
 
 function openBookingModal(labName, city, logo, tests) {
   selectedLabName = labName;
@@ -1677,79 +1707,53 @@ function confirmBooking() {
   const date = document.getElementById('bookingDate').value;
   const time = document.getElementById('bookingTime').value;
   const total = [...document.querySelectorAll('.test-checkbox:checked')]
-  .reduce((sum, cb) => sum + Number(cb.dataset.price || 0), 0);
+    .reduce((sum, cb) => sum + Number(cb.dataset.price || 0), 0);
 
   if (checked.length < 1 || checked.length > 3) {
     alert('اختاري من تحليل واحد إلى ثلاثة تحاليل');
     return;
   }
+  if (!date) { alert('اختاري اليوم أولاً'); return; }
+  if (!time) { alert('اختاري الوقت أولاً'); return; }
 
-  if (!date) {
-    alert('اختاري اليوم أولاً');
-    return;
-  }
+  const formData = new FormData();
+  formData.append('lab_name', selectedLabName);
+  formData.append('date', date);
+  formData.append('time', time);
+  formData.append('tests', JSON.stringify(checked));
 
-  if (!time) {
-    alert('اختاري الوقت أولاً');
-    return;
-  }
+  fetch('book_appointment.php', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        // Show confirmation message
+        const confirmText = `المختبر: ${selectedLabName}<br>التحاليل: ${checked.join('، ')}<br>التاريخ: ${date}<br>الوقت: ${time}<br>السعر الإجمالي: ${total} ريال`;
+        document.getElementById('confirmText').innerHTML = confirmText;
+        document.getElementById('confirmBox').style.display = 'block';
 
-const confirmText = `
-  المختبر: ${selectedLabName}<br>
-  التحاليل: ${checked.join('، ')}<br>
-  التاريخ: ${date}<br>
-  الوقت: ${time}<br>
-  السعر الإجمالي: ${total} ريال
-`;
+        // Update editing item if in edit mode
+        if (editingItem) {
+          editingItem.dataset.tests = checked.join(',');
+          editingItem.dataset.date  = date;
+          editingItem.dataset.time  = time;
+          const testsEl = editingItem.querySelector('.appointment-tests');
+          const dateEl  = editingItem.querySelector('.appointment-date');
+          if (testsEl) testsEl.textContent = checked.join(' — ');
+          if (dateEl)  dateEl.textContent  = `${date} — ${time}`;
+          editingItem = null;
+        }
 
-  document.getElementById('confirmText').innerHTML = confirmText;
-  document.getElementById('confirmBox').style.display = 'block';
-  
-  if (editingItem) {
-  editingItem.dataset.tests = checked.join(',');
-  editingItem.dataset.date = date;
-  editingItem.dataset.time = time;
-
-  const testsElement = editingItem.querySelector('.appointment-tests');
-  const dateElement = editingItem.querySelector('.appointment-date');
-
-  if (testsElement) {
-    testsElement.textContent = checked.join(' — ');
-  }
-
-  if (dateElement) {
-    dateElement.textContent = `${date} — ${time}`;
-  }
-
-  editingItem = null;
-}
+        // Reload page after 2 seconds so new appointment appears
+        setTimeout(() => location.reload(), 2000);
+      } else {
+        alert('حدث خطأ: ' + (data.message || 'تعذّر الحجز'));
+      }
+    })
+    .catch(() => alert('حدث خطأ في الاتصال بالخادم'));
 }
 let editingItem = null;
 
 function getLabTests(labName) {
-  const labsData = {
-    'مجموعة الدكتور سليمان الحبيب الطبية': [
-      { name: 'فيتامين د', price: 120, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
-      { name: 'كالسيوم', price: 90, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
-      { name: 'هيموجلوبين', price: 85, desc: 'النطاق الطبيعي: ١٢ – ١٦ g/dL' }
-    ],
-    'مختبرات البرج': [
-      { name: 'فيتامين د', price: 110, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
-      { name: 'كالسيوم', price: 95, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
-      { name: 'فيتامين ب١٢', price: 135, desc: 'النطاق الطبيعي: ٢٠٠ – ٩٠٠ pg/mL' }
-    ],
-    'عيادات النهدي كير': [
-      { name: 'فيتامين د', price: 100, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
-      { name: 'كالسيوم', price: 88, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
-      { name: 'الحديد', price: 115, desc: 'النطاق الطبيعي: ٦٠ – ١٧٠ µg/dL' }
-    ],
-    'مختبرات وريد الطبية': [
-      { name: 'فيتامين د', price: 115, desc: 'النطاق الطبيعي: ٥٠ – ١٢٥ nmol/L' },
-      { name: 'كالسيوم', price: 92, desc: 'النطاق الطبيعي: ٨.٦ – ١٠.٢ mg/dL' },
-      { name: 'الكوليسترول الكلي', price: 125, desc: 'النطاق الطبيعي: أقل من ٢٠٠ mg/dL' }
-    ]
-  };
-
   return labsData[labName] || [];
 }
 
