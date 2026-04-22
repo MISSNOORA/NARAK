@@ -1,3 +1,266 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+date_default_timezone_set('Asia/Riyadh');
+session_start();
+require_once "db.php";
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'lab') {
+    header("Location: index.php");
+    exit;
+}
+
+$labId = $_SESSION['user_id'];
+?>
+
+
+
+
+
+
+
+
+<?php
+$today = date("Y-m-d");
+$currentMonth = date("Y-m");
+
+$stats = [
+    'today_appointments' => 0,
+    'pending_appointments' => 0,
+    'results_waiting' => 0,
+    'completed_month' => 0
+];
+
+/* مواعيد اليوم */
+$sqlToday = "SELECT COUNT(*) AS total
+             FROM appointment a
+             JOIN time_slot ts ON a.slot_id = ts.slot_id
+             WHERE a.lab_id = ? AND ts.slot_date = ?";
+$stmt = mysqli_prepare($conn, $sqlToday);
+mysqli_stmt_bind_param($stmt, "is", $labId, $today);
+mysqli_stmt_execute($stmt);
+$res = mysqli_stmt_get_result($stmt);
+$stats['today_appointments'] = mysqli_fetch_assoc($res)['total'];
+
+/* طلبات pending */
+$sqlPending = "SELECT COUNT(*) AS total
+               FROM appointment
+               WHERE lab_id = ? AND status = 'pending'";
+$stmt = mysqli_prepare($conn, $sqlPending);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$res = mysqli_stmt_get_result($stmt);
+$stats['pending_appointments'] = mysqli_fetch_assoc($res)['total'];
+
+/* مواعيد مكتملة بدون نتائج */
+$sqlWaitingResults = "SELECT COUNT(*) AS total
+                      FROM appointment a
+                      WHERE a.lab_id = ?
+                      AND a.status = 'completed'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM test_result tr
+                          WHERE tr.appointment_id = a.appointment_id
+                      )";
+$stmt = mysqli_prepare($conn, $sqlWaitingResults);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$res = mysqli_stmt_get_result($stmt);
+$stats['results_waiting'] = mysqli_fetch_assoc($res)['total'];
+
+/* الطلبات المكتملة هذا الشهر */
+$sqlCompletedMonth = "SELECT COUNT(*) AS total
+                      FROM appointment
+                      WHERE lab_id = ?
+                      AND status = 'completed'
+                      AND DATE_FORMAT(created_at, '%Y-%m') = ?";
+$stmt = mysqli_prepare($conn, $sqlCompletedMonth);
+mysqli_stmt_bind_param($stmt, "is", $labId, $currentMonth);
+mysqli_stmt_execute($stmt);
+$res = mysqli_stmt_get_result($stmt);
+$stats['completed_month'] = mysqli_fetch_assoc($res)['total'];
+?>
+
+
+<?php
+$appointments = [];
+
+$sqlAppointments = "
+SELECT 
+    a.appointment_id,
+    a.status,
+    c.first_name,
+    c.last_name,
+    c.phone_number,
+    ts.slot_date,
+    ts.slot_time,
+    GROUP_CONCAT(tt.test_name SEPARATOR '، ') AS tests
+FROM appointment a
+JOIN customer c ON a.customer_id = c.customer_id
+JOIN time_slot ts ON a.slot_id = ts.slot_id
+LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+LEFT JOIN test_type tt ON att.test_type_id = tt.test_type_id
+WHERE a.lab_id = ?
+GROUP BY a.appointment_id, a.status, c.first_name, c.last_name, c.phone_number, ts.slot_date, ts.slot_time
+ORDER BY ts.slot_date DESC, ts.slot_time DESC
+";
+
+$stmt = mysqli_prepare($conn, $sqlAppointments);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $appointments[] = $row;
+}
+?>
+
+
+
+
+<?php
+$labSql = "SELECT lab_id, lab_name, lab_logo, email, phone_number, address
+           FROM laboratory
+           WHERE lab_id = ?";
+
+$stmt = mysqli_prepare($conn, $labSql);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$labResult = mysqli_stmt_get_result($stmt);
+$lab = mysqli_fetch_assoc($labResult);
+?>
+
+
+
+
+
+<?php
+$appointments = [];
+
+$sqlAppointments = "
+SELECT 
+    a.appointment_id,
+    a.status,
+    c.first_name,
+    c.last_name,
+    c.phone_number,
+    ts.slot_date,
+    ts.slot_time,
+    GROUP_CONCAT(tt.test_name SEPARATOR '، ') AS tests
+FROM appointment a
+JOIN customer c ON a.customer_id = c.customer_id
+JOIN time_slot ts ON a.slot_id = ts.slot_id
+LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+LEFT JOIN test_type tt ON att.test_type_id = tt.test_type_id
+WHERE a.lab_id = ?
+GROUP BY a.appointment_id, a.status, c.first_name, c.last_name, c.phone_number, ts.slot_date, ts.slot_time
+ORDER BY ts.slot_date DESC, ts.slot_time DESC
+";
+
+$stmt = mysqli_prepare($conn, $sqlAppointments);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $appointments[] = $row;
+}
+?>
+
+
+
+
+
+<?php
+$slots = [];
+
+$sqlSlots = "SELECT slot_id, slot_date, slot_time, is_available
+             FROM time_slot
+             WHERE lab_id = ?
+             ORDER BY slot_date ASC, slot_time ASC";
+
+$stmt = mysqli_prepare($conn, $sqlSlots);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $slots[] = $row;
+}
+?>
+
+
+
+<?php
+$pendingResults = [];
+
+$sqlPendingResults = "
+SELECT 
+    a.appointment_id,
+    c.first_name,
+    c.last_name,
+    ts.slot_date,
+    GROUP_CONCAT(tt.test_name SEPARATOR ' - ') AS tests
+FROM appointment a
+JOIN customer c ON a.customer_id = c.customer_id
+JOIN time_slot ts ON a.slot_id = ts.slot_id
+LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+LEFT JOIN test_type tt ON att.test_type_id = tt.test_type_id
+WHERE a.lab_id = ?
+AND a.status = 'completed'
+AND NOT EXISTS (
+    SELECT 1
+    FROM test_result tr
+    WHERE tr.appointment_id = a.appointment_id
+)
+GROUP BY a.appointment_id, c.first_name, c.last_name, ts.slot_date
+ORDER BY ts.slot_date DESC
+";
+
+$stmt = mysqli_prepare($conn, $sqlPendingResults);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $pendingResults[] = $row;
+}
+?>
+
+<?php
+$resultTestsByAppointment = [];
+
+$sqlResultTests = "
+SELECT 
+    att.appointment_id,
+    tt.test_type_id,
+    tt.test_name
+FROM appointment_test_type att
+JOIN test_type tt ON att.test_type_id = tt.test_type_id
+JOIN appointment a ON att.appointment_id = a.appointment_id
+WHERE a.lab_id = ?
+ORDER BY att.appointment_id, tt.test_name
+";
+
+$stmt = mysqli_prepare($conn, $sqlResultTests);
+mysqli_stmt_bind_param($stmt, "i", $labId);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $appointmentId = $row['appointment_id'];
+
+    if (!isset($resultTestsByAppointment[$appointmentId])) {
+        $resultTestsByAppointment[$appointmentId] = [];
+    }
+
+    $resultTestsByAppointment[$appointmentId][] = [
+        'test_type_id' => $row['test_type_id'],
+        'test_name' => $row['test_name']
+    ];
+}
+?>
+
 <!DOCTYPE html>
 <!--
 Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
@@ -221,9 +484,15 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     <img src="images/1.png" alt="نرعاك" class="logo-img">
   </div>
   <div class="sidebar-user">
-    <img src="images/wared.png" alt="wared-logo" class="user-avatar">
+      <img src="<?php echo htmlspecialchars($lab['lab_logo']); ?>" alt="lab-logo" class="user-avatar">
     <div class="user-info">
-      <strong>مختبر الوريد الطبيه</strong>
+        
+      <strong><?php echo htmlspecialchars($lab['lab_name']); ?></strong>
+      
+      
+      
+      
+      
       <span>مختبر معتمد</span>
     </div>
   </div>
@@ -251,82 +520,114 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
   <!-- HOME -->
   <div class="section active" id="sec-home">
-    <div class="page-header">
-      <div class="page-title">
-        <h1>مرحباً، مختبر الوريد الطبيه</h1>
-        <p>الثلاثاء، ١٠ مارس ٢٠٢٦</p>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-num">٥</div><div class="stat-label">مواعيد اليوم</div></div>
-      <div class="stat-card"><div class="stat-num">١٢</div><div class="stat-label">طلبات قيد الانتظار</div></div>
-      <div class="stat-card"><div class="stat-num">٣</div><div class="stat-label">نتائج لم تُرفع</div></div>
-      <div class="stat-card"><div class="stat-num">٤٨</div><div class="stat-label">طلبات مكتملة (الشهر)</div></div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">مواعيد اليوم</div>
-          <a href="#" style="font-size:0.78rem;color:var(--deep-red);font-weight:600;text-decoration:none;" onclick="showSection('appointments',document.querySelector('[onclick*=appointments]'))">عرض الكل</a>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#faf8f5;border-radius:10px;">
-            <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">نورا الصيعري</div>
-              <div style="font-size:0.75rem;color:#999;">فيتامين د — الكوليسترول الكلي • ٩:٠٠ ص</div>
-            </div>
-            <span class="status-badge status-progress">قيد التنفيذ</span>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#faf8f5;border-radius:10px;">
-            <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">يارا زقزوق </div>
-              <div style="font-size:0.75rem;color:#999;">كالسيوم  • ١٠:٣٠ ص</div>
-            </div>
-            <span class="status-badge status-progress">قيد التنفيذ</span>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#faf8f5;border-radius:10px;">
-            <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">فرح علي </div>
-              <div style="font-size:0.75rem;color:#999;"> فيتامين د • ١١:٠٠ ص</div>
-            </div>
-            <span class="status-badge status-pending">في الانتظار</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">نتائج تنتظر الرفع</div>
-          <a href="#" style="font-size:0.78rem;color:var(--deep-red);font-weight:600;text-decoration:none;" onclick="showSection('results',document.querySelector('[onclick*=results]'))">رفع النتائج</a>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
-            <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">نوره ال حسين </div>
-              <div style="font-size:0.75rem;color:#999;">فيتامين د - كالسيوم- الكلسترول الكلي   • ٨ مارس</div>
-            </div>
-            <button class="btn btn-primary" style="padding:6px 14px;font-size:0.78rem;" onclick="showSection('results',document.querySelector('[onclick*=results]'))">رفع</button>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
-            <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">خالد الشمري</div>
-              <div style="font-size:0.75rem;color:#999;">فيتامين د • ٨ مارس</div>
-            </div>
-            <button class="btn btn-primary" style="padding:6px 14px;font-size:0.78rem;" onclick="showSection('results',document.querySelector('[onclick*=results]'))">رفع</button>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
-            <div>
-              <div style="font-size:0.85rem;font-weight:600;color:#222;">عبدالله السفياني</div>
-              <div style="font-size:0.75rem;color:#999;">كالسيوم • ٧ مارس</div>
-            </div>
-            <button class="btn btn-primary" style="padding:6px 14px;font-size:0.78rem;" onclick="showSection('results',document.querySelector('[onclick*=results]'))">رفع</button>
-          </div>
-        </div>
-      </div>
+  <div class="page-header">
+    <div class="page-title">
+      <h1>مرحباً، <?php echo htmlspecialchars($lab['lab_name']); ?></h1>
+      <p><?php echo date('Y-m-d'); ?></p>
     </div>
   </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-num"><?php echo $stats['today_appointments']; ?></div>
+      <div class="stat-label">مواعيد اليوم</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-num"><?php echo $stats['pending_appointments']; ?></div>
+      <div class="stat-label">طلبات قيد الانتظار</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-num"><?php echo $stats['results_waiting']; ?></div>
+      <div class="stat-label">نتائج لم تُرفع</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-num"><?php echo $stats['completed_month']; ?></div>
+      <div class="stat-label">طلبات مكتملة (الشهر)</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">مواعيد اليوم</div>
+        <a href="#" style="font-size:0.78rem;color:var(--deep-red);font-weight:600;text-decoration:none;" onclick="showSection('appointments',document.querySelector('[onclick*=appointments]'))">عرض الكل</a>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <?php foreach ($appointments as $appt): ?>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#faf8f5;border-radius:10px;">
+            <div>
+              <div style="font-size:0.85rem;font-weight:600;color:#222;">
+                <?php echo htmlspecialchars($appt['first_name'] . " " . $appt['last_name']); ?>
+              </div>
+
+              <div style="font-size:0.75rem;color:#999;">
+                <?php echo htmlspecialchars($appt['tests']); ?> •
+                <?php echo htmlspecialchars(date("g:i A", strtotime($appt['slot_time']))); ?>
+              </div>
+            </div>
+
+            <?php
+              $statusClass = "status-pending";
+              $statusText = "في الانتظار";
+
+              if ($appt['status'] == "confirmed") {
+                $statusClass = "status-confirmed";
+                $statusText = "مؤكد";
+              } elseif ($appt['status'] == "completed") {
+                $statusClass = "status-done";
+                $statusText = "مكتمل";
+              } elseif ($appt['status'] == "cancelled") {
+                $statusClass = "status-cancelled";
+                $statusText = "ملغي";
+              }
+            ?>
+
+            <span class="status-badge <?php echo $statusClass; ?>">
+              <?php echo $statusText; ?>
+            </span>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
+    <div class="card">
+  <div class="card-header">
+    <div class="card-title">نتائج تنتظر الرفع</div>
+    <a href="#" style="font-size:0.78rem;color:var(--deep-red);font-weight:600;text-decoration:none;" onclick="showSection('results',document.querySelector('[onclick*=results]'))">رفع النتائج</a>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <?php if (!empty($pendingResults)): ?>
+      <?php foreach ($pendingResults as $item): ?>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;">
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;color:#222;">
+              <?php echo htmlspecialchars($item['first_name'] . ' ' . $item['last_name']); ?>
+            </div>
+            <div style="font-size:0.75rem;color:#999;">
+              <?php echo htmlspecialchars($item['tests']); ?> • <?php echo htmlspecialchars($item['slot_date']); ?>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" style="padding:6px 14px;font-size:0.78rem;"
+                  onclick="showSection('results',document.querySelector('[onclick*=results]'))">
+            رفع
+          </button>
+        </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <div style="padding:12px;background:#faf8f5;border-radius:10px;color:#777;font-size:0.85rem;">
+        لا توجد نتائج تنتظر الرفع حالياً
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
+  </div>
+</div>
 
   <!-- APPOINTMENTS -->
   <div class="section" id="sec-appointments">
@@ -345,176 +646,272 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
         <div style="text-align:center">بلاغ</div>
       </div>
 
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr 1fr 0.8fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;">نورا الصيعري </div><div style="font-size:0.73rem;color:#999;">٠٥٠ ١٢٣ ٤٥٦٧</div></div>
-        <div style="font-size:0.82rem;color:var(--medium-brown);">فيتامين د، -الكلسترول الكلي</div>
-        <div style="font-size:0.82rem;">١٠ مارس</div>
-        <div style="font-size:0.82rem;">٩:٠٠ ص</div>
-        <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
-        <div style="text-align:center">
-          <select onchange="this.value && alert('تم تحديث الحالة إلى: '+this.options[this.selectedIndex].text)" style="font-family:Tajawal,sans-serif;font-size:0.75rem;border:1px solid #e8e0d8;border-radius:8px;padding:5px 8px;color:#555;background:#fff;cursor:pointer;width:100%;outline:none;">
-            <option value="">تحديث</option>
-            <option>في الانتظار</option>
-            <option>مؤكد</option>
-            <option>قيد التنفيذ</option>
-            <option>مكتمل</option>
-            <option>ملغي</option>
-          </select>
-            </div>
-          <div style="text-align:center"><button class="btn-report" onclick="openReportPopup('نورا الصيعري')" title="رفع بلاغ">🚩</button></div>          
-
+      <?php foreach ($appointments as $appt): ?>
+  <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr 1fr 0.8fr;">
+    
+    <div>
+      <div style="font-size:0.88rem;font-weight:600;">
+        <?php echo htmlspecialchars($appt['first_name'] . ' ' . $appt['last_name']); ?>
       </div>
-
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr 1fr 0.8fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;">يارا زقزوق </div><div style="font-size:0.73rem;color:#999;">٠٥٥ ٩٨٧ ٦٥٤٣</div></div>
-        <div style="font-size:0.82rem;color:var(--medium-brown);"> كالسيوم </div>
-        <div style="font-size:0.82rem;">١٠ مارس</div>
-        <div style="font-size:0.82rem;">١٠:٣٠ ص</div>
-        <div style="text-align:center"><span class="status-badge status-progress">قيد التنفيذ</span></div>
-        <div style="text-align:center">
-          <select style="font-family:Tajawal,sans-serif;font-size:0.75rem;border:1px solid #e8e0d8;border-radius:8px;padding:5px 8px;color:#555;background:#fff;cursor:pointer;width:100%;outline:none;">
-            <option value="">تحديث</option>
-            <option>في الانتظار</option>
-            <option>مؤكد</option>
-            <option selected>قيد التنفيذ</option>
-            <option>مكتمل</option>
-            <option>ملغي</option>
-          </select>
-        </div>
-        <div style="text-align:center"><button class="btn-report" onclick="openReportPopup('يارا زقزوق')" title="رفع بلاغ">🚩</button></div> 
-      </div>
-
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr 1fr 0.8fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;">فرح علي </div><div style="font-size:0.73rem;color:#999;">٠٥٦ ٣٣٣ ٧٧٧٧</div></div>
-        <div style="font-size:0.82rem;color:var(--medium-brown);">فيتامين د </div>
-        <div style="font-size:0.82rem;">١٠ مارس</div>
-        <div style="font-size:0.82rem;">١١:٠٠ ص</div>
-        <div style="text-align:center"><span class="status-badge status-pending">في الانتظار</span></div>
-        <div style="text-align:center">
-          <select style="font-family:Tajawal,sans-serif;font-size:0.75rem;border:1px solid #e8e0d8;border-radius:8px;padding:5px 8px;color:#555;background:#fff;cursor:pointer;width:100%;outline:none;">
-            <option value="">تحديث</option>
-            <option selected>في الانتظار</option>
-            <option>مؤكد</option>
-            <option>قيد التنفيذ</option>
-            <option>مكتمل</option>
-            <option>ملغي</option>
-          </select>
-        </div>
-        <div style="text-align:center"><button class="btn-report" onclick="openReportPopup('فرح علي ')" title="رفع بلاغ">🚩</button></div> 
-
-      </div>
-
-      <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr 1fr 0.8fr;">
-        <div><div style="font-size:0.88rem;font-weight:600;color:#aaa;">رانيا محمد </div><div style="font-size:0.73rem;color:#bbb;">٠٥٠ ٤٤٤ ٥٥٥٥</div></div>
-        <div style="font-size:0.82rem;color:#bbb;">صورة دم كاملة</div>
-        <div style="font-size:0.82rem;color:#bbb;">٨ مارس</div>
-        <div style="font-size:0.82rem;color:#bbb;">٩:٠٠ ص</div>
-        <div style="text-align:center"><span class="status-badge status-done">مكتمل</span></div>
-        <div style="text-align:center"><span style="font-size:0.75rem;color:#bbb;">—</span></div>
+      <div style="font-size:0.73rem;color:#999;">
+        <?php echo htmlspecialchars($appt['phone_number']); ?>
       </div>
     </div>
+
+    <div style="font-size:0.82rem;color:var(--medium-brown);">
+      <?php echo htmlspecialchars($appt['tests'] ?? '—'); ?>
+    </div>
+
+    <div style="font-size:0.82rem;">
+      <?php echo htmlspecialchars($appt['slot_date']); ?>
+    </div>
+
+    <div style="font-size:0.82rem;">
+      <?php echo htmlspecialchars(date("g:i A", strtotime($appt['slot_time']))); ?>
+    </div>
+
+    <div style="text-align:center">
+      <?php
+        $statusClass = 'status-pending';
+        $statusText = 'في الانتظار';
+
+        if ($appt['status'] === 'confirmed') {
+            $statusClass = 'status-confirmed';
+            $statusText = 'مؤكد';
+        } elseif ($appt['status'] === 'completed') {
+            $statusClass = 'status-done';
+            $statusText = 'مكتمل';
+        } elseif ($appt['status'] === 'cancelled') {
+            $statusClass = 'status-cancelled';
+            $statusText = 'ملغي';
+        }
+      ?>
+      <span class="status-badge <?php echo $statusClass; ?>">
+        <?php echo $statusText; ?>
+      </span>
+    </div>
+
+    <div style="text-align:center">
+      <form method="POST" action="update_lab_appointment_status.php">
+        <input type="hidden" name="appointment_id" value="<?php echo $appt['appointment_id']; ?>">
+        <select name="status" onchange="this.form.submit()" class="status-select">
+          <option value="">تحديث</option>
+          <option value="pending">في الانتظار</option>
+          <option value="confirmed">مؤكد</option>
+          <option value="completed">مكتمل</option>
+          <option value="cancelled">ملغي</option>
+        </select>
+      </form>
+    </div>
+
+    <div style="text-align:center">
+      <button class="btn-report" type="button">🚩</button>
+    </div>
+
+  </div>
+<?php endforeach; ?>
+        </div>
   </div>
 
+  
   <!-- SLOTS MANAGEMENT -->
   <div class="section" id="sec-slots">
-    <div class="page-header">
-      <div class="page-title"><h1>إدارة الأوقات المتاحة</h1><p>أضف وأدر الأوقات المتاحة للزيارات المنزلية</p></div>
-      <button class="btn btn-primary" onclick="alert('تم حفظ الأوقات المتاحة بنجاح')">حفظ التعديلات</button>
+  <div class="page-header">
+    <div class="page-title">
+      <h1>إدارة الأوقات المتاحة</h1>
+      <p>أضف وأدر الأوقات المتاحة للزيارات المنزلية</p>
+    </div>
+    <button class="btn btn-primary" onclick="alert('تم حفظ الأوقات المتاحة بنجاح')">حفظ التعديلات</button>
+  </div>
+      <div class="card" style="margin-bottom:20px;">
+  <div class="card-header">
+    <div class="card-title">إضافة وقت جديد</div>
+  </div>
+
+  <form method="POST" action="add_time_slot.php" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;">
+    
+    <div>
+      <label style="display:block;font-size:0.82rem;font-weight:600;color:#444;margin-bottom:6px;">التاريخ</label>
+      <input type="date" name="slot_date" required
+             style="width:100%;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">مارس ٢٠٢٦</div>
-          <div style="display:flex;gap:8px;">
-            <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#888;"><div style="width:12px;height:12px;background:rgba(82,0,0,0.07);border-radius:3px;"></div>متاح</div>
-            <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#888;"><div style="width:12px;height:12px;background:var(--light-beige);border-radius:3px;"></div>محجوز</div>
+    <div>
+      <label style="display:block;font-size:0.82rem;font-weight:600;color:#444;margin-bottom:6px;">الوقت</label>
+      <input type="time" name="slot_time" required
+             style="width:100%;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+    </div>
+
+    <div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">إضافة وقت</button>
+    </div>
+
+  </form>
+</div>
+
+  <?php
+  $currentYear = date('Y');
+  $currentMonthNum = date('m');
+  $daysInMonth = date('t');
+  $firstDayOfMonth = date('w', strtotime("$currentYear-$currentMonthNum-01"));
+  $todayDate = date('Y-m-d');
+
+  $slotsMap = [];
+
+  $sqlSlotsCalendar = "SELECT slot_date, is_available
+                       FROM time_slot
+                       WHERE lab_id = ?
+                       AND YEAR(slot_date) = ?
+                       AND MONTH(slot_date) = ?";
+  $stmt = mysqli_prepare($conn, $sqlSlotsCalendar);
+  mysqli_stmt_bind_param($stmt, "iii", $labId, $currentYear, $currentMonthNum);
+  mysqli_stmt_execute($stmt);
+  $resultSlotsCalendar = mysqli_stmt_get_result($stmt);
+
+  while ($row = mysqli_fetch_assoc($resultSlotsCalendar)) {
+      $dayNum = (int)date('j', strtotime($row['slot_date']));
+
+      if (!isset($slotsMap[$dayNum])) {
+          $slotsMap[$dayNum] = [
+              'has_available' => false,
+              'has_booked' => false
+          ];
+      }
+
+      if ((int)$row['is_available'] === 1) {
+          $slotsMap[$dayNum]['has_available'] = true;
+      } else {
+          $slotsMap[$dayNum]['has_booked'] = true;
+      }
+  }
+
+  $monthNames = [
+      '01' => 'يناير',
+      '02' => 'فبراير',
+      '03' => 'مارس',
+      '04' => 'أبريل',
+      '05' => 'مايو',
+      '06' => 'يونيو',
+      '07' => 'يوليو',
+      '08' => 'أغسطس',
+      '09' => 'سبتمبر',
+      '10' => 'أكتوبر',
+      '11' => 'نوفمبر',
+      '12' => 'ديسمبر'
+  ];
+
+  $currentMonthTitle = $monthNames[$currentMonthNum] . ' ' . $currentYear;
+  ?>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><?php echo $currentMonthTitle; ?></div>
+        <div style="display:flex;gap:8px;">
+          <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#888;">
+            <div style="width:12px;height:12px;background:rgba(82,0,0,0.07);border-radius:3px;"></div>متاح
           </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
-          <div class="day-name">أح</div><div class="day-name">إث</div><div class="day-name">ثل</div>
-          <div class="day-name">أر</div><div class="day-name">خم</div><div class="day-name">جم</div><div class="day-name">سب</div>
-        </div>
-
-        <div class="month-grid">
-          <div class="day-cell empty"></div>
-          <div class="day-cell empty"></div>
-          <div class="day-cell empty"></div>
-          <div class="day-cell empty"></div>
-          <div class="day-cell empty"></div>
-          <div class="day-cell empty"></div>
-          <div class="day-cell past">١</div>
-          <div class="day-cell past">٢</div>
-          <div class="day-cell past">٣</div>
-          <div class="day-cell past">٤</div>
-          <div class="day-cell past">٥</div>
-          <div class="day-cell past">٦</div>
-          <div class="day-cell past">٧</div>
-          <div class="day-cell past">٨</div>
-          <div class="day-cell booked">٩</div>
-          <div class="day-cell today">١٠</div>
-          <div class="day-cell booked">١١</div>
-          <div class="day-cell booked">١٢</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">١٣</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">١٤</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">١٥</div>
-          <div class="day-cell booked">١٦</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">١٧</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">١٨</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">١٩</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٠</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢١</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٢</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٣</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٤</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٥</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٦</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٧</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٨</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٢٩</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٣٠</div>
-          <div class="day-cell available" onclick="this.style.background='var(--deep-red)';this.style.color='#fff'">٣١</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#888;">
+            <div style="width:12px;height:12px;background:var(--light-beige);border-radius:3px;"></div>محجوز
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">أوقات الدوام اليومي</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#faf8f5;border-radius:10px;">
-            <span style="font-size:0.85rem;font-weight:600;">٨:٠٠ ص — ١٠:٠٠ ص</span>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <span style="font-size:0.75rem;color:#2d7a3a;background:#e8f4ea;padding:3px 10px;border-radius:20px;">متاح</span>
-              <button style="font-size:0.75rem;padding:4px 10px;border:1px solid #e8e0d8;border-radius:8px;background:#fff;cursor:pointer;font-family:Tajawal,sans-serif;">تعطيل</button>
-            </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
+        <div class="day-name">أح</div>
+        <div class="day-name">إث</div>
+        <div class="day-name">ثل</div>
+        <div class="day-name">أر</div>
+        <div class="day-name">خم</div>
+        <div class="day-name">جم</div>
+        <div class="day-name">سب</div>
+      </div>
+
+      <div class="month-grid">
+        <?php for ($i = 0; $i < $firstDayOfMonth; $i++): ?>
+          <div class="day-cell empty"></div>
+        <?php endfor; ?>
+
+        <?php for ($day = 1; $day <= $daysInMonth; $day++): ?>
+          <?php
+          $fullDate = sprintf('%04d-%02d-%02d', $currentYear, $currentMonthNum, $day);
+
+          if ($fullDate < $todayDate) {
+              $cellClass = 'past';
+          } elseif ($fullDate === $todayDate) {
+              $cellClass = 'today';
+          } elseif (isset($slotsMap[$day])) {
+              if ($slotsMap[$day]['has_booked']) {
+                  $cellClass = 'booked';
+              } elseif ($slotsMap[$day]['has_available']) {
+                  $cellClass = 'available';
+              } else {
+                  $cellClass = 'available';
+              }
+          } else {
+              $cellClass = 'available';
+          }
+          ?>
+
+          <div class="day-cell <?php echo $cellClass; ?>">
+            <?php echo $day; ?>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#faf8f5;border-radius:10px;">
-            <span style="font-size:0.85rem;font-weight:600;">١٠:٠٠ ص — ١٢:٠٠ م</span>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <span style="font-size:0.75rem;color:#2d7a3a;background:#e8f4ea;padding:3px 10px;border-radius:20px;">متاح</span>
-              <button style="font-size:0.75rem;padding:4px 10px;border:1px solid #e8e0d8;border-radius:8px;background:#fff;cursor:pointer;font-family:Tajawal,sans-serif;">تعطيل</button>
+        <?php endfor; ?>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">الأوقات المسجلة</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <?php if (!empty($slots)): ?>
+          <?php foreach ($slots as $slot): ?>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#faf8f5;border-radius:10px;">
+              <div>
+                <div style="font-size:0.85rem;font-weight:600;">
+                  <?php echo htmlspecialchars($slot['slot_date']); ?>
+                </div>
+                <div style="font-size:0.75rem;color:#999;margin-top:3px;">
+                  <?php echo htmlspecialchars(date('g:i A', strtotime($slot['slot_time']))); ?>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;align-items:center;">
+                <?php if ((int)$slot['is_available'] === 1): ?>
+  <span style="font-size:0.75rem;color:#2d7a3a;background:#e8f4ea;padding:3px 10px;border-radius:20px;">متاح</span>
+
+  <form method="POST" action="toggle_slot_status.php" style="margin:0;">
+    <input type="hidden" name="slot_id" value="<?php echo $slot['slot_id']; ?>">
+    <input type="hidden" name="new_status" value="0">
+    <button type="submit" style="font-size:0.75rem;padding:4px 10px;border:1px solid #e8e0d8;border-radius:8px;background:#fff;cursor:pointer;font-family:Tajawal,sans-serif;">
+      تعطيل
+    </button>
+  </form>
+<?php else: ?>
+  <span style="font-size:0.75rem;color:#c8860a;background:#fff8e6;padding:3px 10px;border-radius:20px;">محجوز</span>
+
+  <form method="POST" action="toggle_slot_status.php" style="margin:0;">
+    <input type="hidden" name="slot_id" value="<?php echo $slot['slot_id']; ?>">
+    <input type="hidden" name="new_status" value="1">
+    <button type="submit" style="font-size:0.75rem;padding:4px 10px;border:1px solid var(--deep-red);border-radius:8px;background:#fff;color:var(--deep-red);cursor:pointer;font-family:Tajawal,sans-serif;">
+      تفعيل
+    </button>
+  </form>
+<?php endif; ?>
+              </div>
             </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div style="padding:14px;background:#faf8f5;border-radius:10px;font-size:0.85rem;color:#777;">
+            لا توجد أوقات مسجلة حالياً
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#faf8f5;border-radius:10px;">
-            <span style="font-size:0.85rem;font-weight:600;">١:٠٠ م — ٣:٠٠ م</span>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <span style="font-size:0.75rem;color:#c8860a;background:#fff8e6;padding:3px 10px;border-radius:20px;">معطل</span>
-              <button style="font-size:0.75rem;padding:4px 10px;border:1px solid var(--deep-red);border-radius:8px;background:#fff;color:var(--deep-red);cursor:pointer;font-family:Tajawal,sans-serif;">تفعيل</button>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#faf8f5;border-radius:10px;">
-            <span style="font-size:0.85rem;font-weight:600;">٣:٠٠ م — ٥:٠٠ م</span>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <span style="font-size:0.75rem;color:#2d7a3a;background:#e8f4ea;padding:3px 10px;border-radius:20px;">متاح</span>
-              <button style="font-size:0.75rem;padding:4px 10px;border:1px solid #e8e0d8;border-radius:8px;background:#fff;cursor:pointer;font-family:Tajawal,sans-serif;">تعطيل</button>
-            </div>
-          </div>
-        </div>
+        <?php endif; ?>
       </div>
     </div>
   </div>
+</div>
 
   <!-- UPLOAD RESULTS -->
   <div class="section" id="sec-results">
@@ -527,18 +924,27 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       <div class="card">
         <div class="card-header"><div class="card-title">طلبات تنتظر النتائج</div></div>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <div id="result-item-1" onclick="selectResult(1)" style="padding:12px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;cursor:pointer;border:1.5px solid transparent;">
-            <div style="font-size:0.88rem;font-weight:600;color:#222;">نوره ال حسين </div>
-            <div style="font-size:0.75rem;color:#999;margin-top:2px;">فيتامين د - كالسيوم - الكلسترول الكلي   • ٨ مارس ٢٠٢٦</div>
-          </div>
-          <div id="result-item-2" onclick="selectResult(2)" style="padding:12px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;cursor:pointer;border:1.5px solid transparent;">
-            <div style="font-size:0.88rem;font-weight:600;color:#222;">خالد الشمري</div>
-            <div style="font-size:0.75rem;color:#999;margin-top:2px;">فيتامين د • ٨ مارس ٢٠٢٦</div>
-          </div>
-          <div id="result-item-3" onclick="selectResult(3)" style="padding:12px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;cursor:pointer;border:1.5px solid transparent;">
-            <div style="font-size:0.88rem;font-weight:600;color:#222;">عبدالله السفياني </div>
-            <div style="font-size:0.75rem;color:#999;margin-top:2px;">كالسيوم • ٧ مارس ٢٠٢٦</div>
-          </div>
+          <?php if (!empty($pendingResults)): ?>
+  <?php foreach ($pendingResults as $index => $item): ?>
+    <div
+      id="result-item-<?php echo $index + 1; ?>"
+      onclick="selectResult(<?php echo $index + 1; ?>)"
+      style="padding:12px;background:#fff8e6;border-radius:10px;border-right:3px solid #c8860a;cursor:pointer;border:1.5px solid transparent;"
+    >
+      <div style="font-size:0.88rem;font-weight:600;color:#222;">
+        <?php echo htmlspecialchars($item['first_name'] . ' ' . $item['last_name']); ?>
+      </div>
+      <div style="font-size:0.75rem;color:#999;margin-top:2px;">
+        <?php echo htmlspecialchars($item['tests']); ?> • <?php echo htmlspecialchars($item['slot_date']); ?>
+      </div>
+    </div>
+  <?php endforeach; ?>
+<?php else: ?>
+  <div style="padding:12px;background:#faf8f5;border-radius:10px;color:#777;font-size:0.85rem;">
+    لا توجد طلبات تنتظر رفع النتائج حالياً
+  </div>
+<?php endif; ?>
+            
         </div>
       </div>
 
@@ -578,7 +984,23 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     </div>
   </div>
 </div>
-
+<script>
+const resultData = <?php
+echo json_encode(
+    array_map(function($item) use ($resultTestsByAppointment) {
+        $appointmentId = $item['appointment_id'];
+        return [
+            'appointment_id' => $appointmentId,
+            'name' => $item['first_name'] . ' ' . $item['last_name'],
+            'date' => $item['slot_date'],
+            'tests_text' => $item['tests'],
+            'tests' => $resultTestsByAppointment[$appointmentId] ?? []
+        ];
+    }, $pendingResults),
+    JSON_UNESCAPED_UNICODE
+);
+?>;
+</script>
 <script>
 function showSection(name, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -587,51 +1009,71 @@ function showSection(name, el) {
   if (el) el.classList.add('active');
 }
 
-function selectResult(id) {
+function selectResult(index) {
   document.querySelectorAll('[id^=result-item]').forEach(el => {
     el.style.border = '1.5px solid transparent';
     el.style.background = '#fff8e6';
   });
 
-  document.getElementById('result-item-' + id).style.border = '1.5px solid var(--deep-red)';
-  document.getElementById('result-item-' + id).style.background = 'rgba(82,0,0,0.04)';
+  const selectedItem = document.getElementById('result-item-' + index);
+  if (selectedItem) {
+    selectedItem.style.border = '1.5px solid var(--deep-red)';
+    selectedItem.style.background = 'rgba(82,0,0,0.04)';
+  }
 
-  const names = ['', 'نورة آل حسين', 'خالد الشمري', 'عبدالله السفياني'];
-  const tests = ['', 'فيتامين د، كالسيوم، الكوليسترول الكلي', 'فيتامين د', 'كالسيوم'];
-  const fields = [
-    [],
-    [
-      ['فيتامين د (nmol/L)', '٥٠–١٢٥'],
-      ['الكالسيوم (mg/dL)', '٨.٦–١٠.٢'],
-      ['الكوليسترول الكلي (mg/dL)', 'أقل من ٢٠٠']
-    ],
-    [
-      ['فيتامين د (nmol/L)', '٥٠–١٢٥']
-    ],
-    [
-      ['الكالسيوم (mg/dL)', '٨.٦–١٠.٢']
-    ]
-  ];
+  const item = resultData[index - 1];
+  if (!item) return;
 
-  let html = `<div class="card-header"><div class="card-title">إدخال نتائج: ${names[id]}</div></div>`;
-  html += `<div style="font-size:0.8rem;color:var(--medium-brown);margin-bottom:20px;">الفحص: ${tests[id]} — <span style="font-size:0.75rem;background:#e8f0fc;color:#2a5cc4;padding:3px 10px;border-radius:20px;">قيد التنفيذ</span></div>`;
+  let html = `<div class="card-header"><div class="card-title">إدخال نتائج: ${item.name}</div></div>`;
+  html += `<div style="font-size:0.8rem;color:var(--medium-brown);margin-bottom:20px;">الفحوصات: ${item.tests_text} — <span style="font-size:0.75rem;background:#e8f0fc;color:#2a5cc4;padding:3px 10px;border-radius:20px;">مكتمل وينتظر النتائج</span></div>`;
 
-  fields[id].forEach(f => {
+  html += `<form method="POST" action="save_test_results.php">`;
+  html += `<input type="hidden" name="appointment_id" value="${item.appointment_id}">`;
+
+  item.tests.forEach((test, i) => {
     html += `
       <div style="margin-bottom:16px;">
-        <label style="font-size:0.82rem;font-weight:600;color:#444;display:block;margin-bottom:6px;">${f[0]}</label>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <input type="number" step="0.1" placeholder="القيمة" style="flex:1;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;text-align:right;">
-          <span style="font-size:0.78rem;color:#aaa;white-space:nowrap;">النطاق: ${f[1]}</span>
+        <label style="font-size:0.82rem;font-weight:600;color:#444;display:block;margin-bottom:6px;">${test.test_name}</label>
+
+        <input type="hidden" name="test_type_id[]" value="${test.test_type_id}">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <input
+            type="text"
+            name="result_value[]"
+            placeholder="القيمة"
+            required
+            style="padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;text-align:right;"
+          >
+
+          <input
+            type="text"
+            name="normal_range[]"
+            placeholder="النطاق الطبيعي"
+            style="padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;text-align:right;"
+          >
+
+          <select
+            name="status_flag[]"
+            required
+            style="padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;"
+          >
+            <option value="">اختر الحالة</option>
+            <option value="normal">طبيعي</option>
+            <option value="low">منخفض</option>
+            <option value="high">مرتفع</option>
+          </select>
         </div>
       </div>
     `;
   });
 
-  html += `<button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="alert('تم رفع النتائج بنجاح وإرسالها للعميل')">رفع النتائج ✓</button>`;
+  html += `<button class="btn btn-primary" style="width:100%;margin-top:8px;" type="submit">رفع النتائج ✓</button>`;
+  html += `</form>`;
 
   document.getElementById('result-form').innerHTML = html;
 }
+
 let selectedReportedUser = '';
 
 function openReportPopup(userName) {
@@ -655,7 +1097,7 @@ function submitReport() {
     return;
   }
 
-  alert('تم إرسال البلاغ على ' + selectedReportedUser + '\\nنوع البلاغ: ' + type);
+  alert('تم إرسال البلاغ على ' + selectedReportedUser + '\nنوع البلاغ: ' + type);
   closeReportPopup();
 }
 </script>
