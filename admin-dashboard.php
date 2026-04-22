@@ -8,6 +8,7 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 }
 
 $adminName = $_SESSION["full_name"] ?? "مدير النظام";
+/* test*/
 
 /* حظر عميل */
 if (isset($_GET["block_customer"]) && isset($_GET["report_id"])) {
