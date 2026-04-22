@@ -68,6 +68,66 @@ function statusColor(string $status): string {
     return match($status) { 'low' => '#c8860a', 'high' => '#c42a2a', default => '#2d7a3a' };
 }
 
+function formatSlotTime(string $hms): string {
+    [$h, $m] = explode(':', $hms);
+    $h = (int)$h;
+    $suffix = $h < 12 ? 'ص' : 'م';
+    $h12 = $h % 12 ?: 12;
+    return $h12 . ':' . $m . ' ' . $suffix;
+}
+
+// Past appointments for this customer (completed, newest first)
+$sqlPast = "
+    SELECT
+        a.appointment_id,
+        l.lab_name,
+        ts.slot_date,
+        ts.slot_time,
+        tt.test_name,
+        tt.price,
+        tt.unit,
+        tr.result_value,
+        tr.status_flag
+    FROM appointment a
+    JOIN laboratory              l   ON a.lab_id        = l.lab_id
+    JOIN time_slot               ts  ON a.slot_id        = ts.slot_id
+    LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+    LEFT JOIN test_type          tt  ON att.test_type_id   = tt.test_type_id
+    LEFT JOIN test_result        tr  ON tr.appointment_id  = a.appointment_id
+                                    AND tr.test_type_id    = tt.test_type_id
+    WHERE a.customer_id = ? AND a.status = 'completed'
+    ORDER BY ts.slot_date DESC, ts.slot_time DESC, tt.test_name
+";
+$stmtPast = mysqli_prepare($conn, $sqlPast);
+mysqli_stmt_bind_param($stmtPast, 'i', $customerId);
+mysqli_stmt_execute($stmtPast);
+$rsPast = mysqli_stmt_get_result($stmtPast);
+
+// Group rows by appointment_id
+$pastAppointments = [];
+while ($row = mysqli_fetch_assoc($rsPast)) {
+    $aid = $row['appointment_id'];
+    if (!isset($pastAppointments[$aid])) {
+        $pastAppointments[$aid] = [
+            'lab_name'  => $row['lab_name'],
+            'slot_date' => $row['slot_date'],
+            'slot_time' => $row['slot_time'],
+            'tests'     => [],
+            'total'     => 0,
+        ];
+    }
+    if ($row['test_name']) {
+        $pastAppointments[$aid]['tests'][] = [
+            'name'         => $row['test_name'],
+            'price'        => (float)$row['price'],
+            'unit'         => trim($row['unit'] ?? ''),
+            'result_value' => $row['result_value'],
+            'status_flag'  => $row['status_flag'],
+        ];
+        $pastAppointments[$aid]['total'] += (float)$row['price'];
+    }
+}
+
 // Build comparisonData array for JS
 $comparisonData = [];
 foreach ($grouped as $id => $g) {
@@ -1377,95 +1437,54 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
   <div class="past-appointments-list">
 
-    <!-- appointment 1 -->
-    <div class="past-appointment-item">
-      <button class="past-appointment-header" onclick="togglePastAppointment(this)">
-        <div class="past-appointment-main">
-          <div class="past-appointment-title">مختبرات وريد الطبية</div>
-          <div class="past-appointment-meta">
-            <span>التاريخ: ٨ مارس ٢٠٢٦</span>
-            <span>الوقت: ٩:٠٠ ص</span>
-            <span>التحاليل: فيتامين د، الكوليسترول الكلي</span>
-            <span>السعر : 240</span>
+    <?php if (empty($pastAppointments)): ?>
+      <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد مواعيد سابقة حتى الآن.</div>
+    <?php else: ?>
+      <?php foreach ($pastAppointments as $apt): ?>
+        <?php
+          $testNames  = implode('، ', array_column($apt['tests'], 'name'));
+          $totalPrice = number_format($apt['total'], 0);
+        ?>
+        <div class="past-appointment-item">
+          <button class="past-appointment-header" onclick="togglePastAppointment(this)">
+            <div class="past-appointment-main">
+              <div class="past-appointment-title"><?= htmlspecialchars($apt['lab_name']) ?></div>
+              <div class="past-appointment-meta">
+                <span>التاريخ: <?= arabicDate($apt['slot_date']) ?></span>
+                <span>الوقت: <?= formatSlotTime($apt['slot_time']) ?></span>
+                <span>التحاليل: <?= htmlspecialchars($testNames ?: '—') ?></span>
+                <span>السعر: <?= $totalPrice ?> ريال</span>
+              </div>
+            </div>
+            <span class="past-arrow">⌃</span>
+          </button>
+
+          <div class="past-appointment-body">
+            <div class="past-results-grid">
+              <?php foreach ($apt['tests'] as $t):
+                $statusLabel = match($t['status_flag'] ?? '') {
+                  'low'  => 'منخفض',
+                  'high' => 'مرتفع',
+                  'normal' => 'طبيعي',
+                  default  => 'قيد المعالجة',
+                };
+                $suffix = $t['unit'] ? ' ' . $t['unit'] : '';
+              ?>
+              <div class="past-result-card">
+                <strong><?= htmlspecialchars($t['name']) ?></strong>
+                <?php if ($t['result_value'] !== null): ?>
+                  <span>النتيجة: <?= htmlspecialchars($t['result_value'] . $suffix) ?></span>
+                  <span>الحالة: <?= $statusLabel ?></span>
+                <?php else: ?>
+                  <span style="color:#aaa;">النتيجة: قيد المعالجة</span>
+                <?php endif; ?>
+              </div>
+              <?php endforeach; ?>
+            </div>
           </div>
         </div>
-        <span class="past-arrow">⌃</span>
-      </button>
-
-      <div class="past-appointment-body">
-        <div class="past-results-grid">
-          <div class="past-result-card">
-            <strong>فيتامين د</strong>
-            <span>النتيجة: ١٨ nmol/L</span>
-            <span>الحالة: منخفض</span>
-          </div>
-
-          <div class="past-result-card">
-            <strong>الكوليسترول الكلي</strong>
-            <span>النتيجة: ٢١٥ mg/dL</span>
-            <span>الحالة: مرتفع</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- appointment 2 -->
-    <div class="past-appointment-item">
-      <button class="past-appointment-header" onclick="togglePastAppointment(this)">
-        <div class="past-appointment-main">
-          <div class="past-appointment-title">مختبرات البرج</div>
-          <div class="past-appointment-meta">
-            <span>التاريخ: ٥ مارس ٢٠٢٦</span>
-            <span>الوقت: ٨:٣٠ ص</span>
-            <span>التحاليل: فيتامين ب١٢</span>
-            <span>السعر : 135</span>
-          </div>
-        </div>
-        <span class="past-arrow">⌃</span>
-      </button>
-
-      <div class="past-appointment-body">
-        <div class="past-results-grid">
-          <div class="past-result-card">
-            <strong>فيتامين ب١٢</strong>
-            <span>النتيجة: ٣٢٠ pg/mL</span>
-            <span>الحالة: طبيعي</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- appointment 3 -->
-    <div class="past-appointment-item">
-      <button class="past-appointment-header" onclick="togglePastAppointment(this)">
-        <div class="past-appointment-main">
-          <div class="past-appointment-title">عيادات النهدي كير</div>
-          <div class="past-appointment-meta">
-            <span>التاريخ: ١ مارس ٢٠٢٦</span>
-            <span>الوقت: ١٠:٠٠ ص</span>
-            <span>التحاليل: فيتامين د، الحديد</span>
-            <span>السعر : 215</span>
-          </div>
-        </div>
-        <span class="past-arrow">⌃</span>
-      </button>
-
-      <div class="past-appointment-body">
-        <div class="past-results-grid">
-          <div class="past-result-card">
-            <strong>فيتامين د</strong>
-            <span>النتيجة: ١٦ nmol/L</span>
-            <span>الحالة: منخفض</span>
-          </div>
-
-          <div class="past-result-card">
-            <strong>الحديد</strong>
-            <span>النتيجة: ٥٥ µg/dL</span>
-            <span>الحالة: منخفض</span>
-          </div>
-        </div>
-      </div>
-    </div>
+      <?php endforeach; ?>
+    <?php endif; ?>
 
   </div>
 </div>
