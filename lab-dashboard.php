@@ -83,6 +83,7 @@ $sqlAppointments = "
 SELECT 
     a.appointment_id,
     a.status,
+    c.customer_id,
     c.first_name,
     c.last_name,
     c.phone_number,
@@ -128,38 +129,7 @@ $lab = mysqli_fetch_assoc($labResult);
 
 
 
-<?php
-$appointments = [];
 
-$sqlAppointments = "
-SELECT 
-    a.appointment_id,
-    a.status,
-    c.first_name,
-    c.last_name,
-    c.phone_number,
-    ts.slot_date,
-    ts.slot_time,
-    GROUP_CONCAT(tt.test_name SEPARATOR '، ') AS tests
-FROM appointment a
-JOIN customer c ON a.customer_id = c.customer_id
-JOIN time_slot ts ON a.slot_id = ts.slot_id
-LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
-LEFT JOIN test_type tt ON att.test_type_id = tt.test_type_id
-WHERE a.lab_id = ?
-GROUP BY a.appointment_id, a.status, c.first_name, c.last_name, c.phone_number, ts.slot_date, ts.slot_time
-ORDER BY ts.slot_date DESC, ts.slot_time DESC
-";
-
-$stmt = mysqli_prepare($conn, $sqlAppointments);
-mysqli_stmt_bind_param($stmt, "i", $labId);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
-
-while ($row = mysqli_fetch_assoc($result)) {
-    $appointments[] = $row;
-}
-?>
 
 
 
@@ -506,7 +476,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     </a>
   </nav>
   <div class="sidebar-footer">
-    <a class="logout-btn" href="index.php"><span>🚪</span> تسجيل الخروج</a>
+    <a class="logout-btn" href="logout.php"><span>🚪</span> تسجيل الخروج</a>
   </div>
 </aside>
 
@@ -699,7 +669,17 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     </div>
 
     <div style="text-align:center">
-      <button class="btn-report" type="button">🚩</button>
+      <button
+  class="btn-report"
+  type="button"
+  onclick="openReportPopup(
+    '<?php echo htmlspecialchars($appt['first_name'] . ' ' . $appt['last_name'], ENT_QUOTES); ?>',
+    <?php echo (int)$appt['appointment_id']; ?>,
+    <?php echo (int)$appt['customer_id']; ?>
+  )"
+>
+  🚩
+</button>
     </div>
 
   </div>
@@ -959,6 +939,9 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
   <div style="width:420px;max-width:92%;background:#fff;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
     <h3 style="font-size:1.1rem;color:#222;margin-bottom:8px;">رفع بلاغ</h3>
     <p id="reportUserName" style="font-size:0.85rem;color:#777;margin-bottom:18px;">العميل: —</p>
+    
+    <input type="hidden" id="reportAppointmentId">
+    <input type="hidden" id="reportCustomerId">
 
     <label style="display:block;font-size:0.82rem;font-weight:600;color:#444;margin-bottom:6px;">نوع البلاغ</label>
     <select id="reportType" style="width:100%;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;margin-bottom:14px;">
@@ -1070,9 +1053,11 @@ function selectResult(index) {
 
 let selectedReportedUser = '';
 
-function openReportPopup(userName) {
+function openReportPopup(userName, appointmentId, customerId) {
   selectedReportedUser = userName;
   document.getElementById('reportUserName').textContent = 'العميل: ' + userName;
+  document.getElementById('reportAppointmentId').value = appointmentId;
+  document.getElementById('reportCustomerId').value = customerId;
   document.getElementById('reportType').value = '';
   document.getElementById('reportNote').value = '';
   document.getElementById('reportModal').style.display = 'flex';
@@ -1085,14 +1070,35 @@ function closeReportPopup() {
 function submitReport() {
   const type = document.getElementById('reportType').value;
   const note = document.getElementById('reportNote').value.trim();
+  const appointmentId = document.getElementById('reportAppointmentId').value;
+  const customerId = document.getElementById('reportCustomerId').value;
 
   if (!type) {
     alert('اختر نوع البلاغ أولاً');
     return;
   }
 
-  alert('تم إرسال البلاغ على ' + selectedReportedUser + '\nنوع البلاغ: ' + type);
-  closeReportPopup();
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'save_report.php';
+
+  const fields = {
+    appointment_id: appointmentId,
+    customer_id: customerId,
+    report_type: type,
+    report_note: note
+  };
+
+  for (const key in fields) {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = key;
+    input.value = fields[key];
+    form.appendChild(input);
+  }
+
+  document.body.appendChild(form);
+  form.submit();
 }
 </script>
 </body>

@@ -1,5 +1,6 @@
 <?php
 date_default_timezone_set('Asia/Riyadh');
+
 session_start();
 require_once "db.php";
 
