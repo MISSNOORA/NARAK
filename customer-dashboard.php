@@ -1171,6 +1171,26 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       color:#fff;
     }
 
+  /* Summary step */
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0ebe4;
+  }
+  .summary-label {
+    font-size: 0.85rem;
+    color: #888;
+    font-weight: 500;
+  }
+  .summary-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #222;
+    text-align: left;
+  }
+
   /* Content sections */
   .section { display: none; }
   .section.active { display: block; }
@@ -1359,6 +1379,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
     <div class="booking-title">حجز موعد جديد</div>
     <div class="booking-subtitle">اختر التحاليل المناسبة وحدد التاريخ والوقت لتأكيد الموعد</div>
 
+    <div id="bookingFormStep">
     <div class="booking-section">
       <h3>معلومات المختبر</h3>
       <div class="booking-lab-top">
@@ -1416,12 +1437,23 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 
       <div class="booking-actions">
         <button class="booking-btn-cancel" onclick="closeBookingModal()">رجوع</button>
-        <button class="booking-btn-confirm" onclick="confirmBooking()">تأكيد الحجز</button>
+        <button class="booking-btn-confirm" onclick="showBookingSummary()">مراجعة الحجز ←</button>
       </div>
+    </div>
+    </div><!-- /bookingFormStep -->
 
-      <div class="confirm-box" id="confirmBox">
-        <strong>تم تأكيد الحجز بنجاح ✓</strong>
-        <p id="confirmText"></p>
+    <div id="bookingSummaryStep" style="display:none;">
+      <div class="booking-section">
+        <h3>ملخص الحجز</h3>
+        <div id="summaryContent"></div>
+        <div class="booking-actions" style="margin-top:20px;">
+          <button class="booking-btn-cancel" onclick="backToBookingForm()">→ تعديل</button>
+          <button class="booking-btn-confirm" onclick="confirmBooking()">تأكيد الحجز ✓</button>
+        </div>
+        <div class="confirm-box" id="confirmBox">
+          <strong>تم تأكيد الحجز بنجاح ✓</strong>
+          <p id="confirmText"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -1664,6 +1696,8 @@ function openBookingModal(labName, city, logo, tests) {
   document.getElementById('bookingDate').value = '';
   document.getElementById('bookingTime').value = '';
   document.getElementById('confirmBox').style.display = 'none';
+  document.getElementById('bookingFormStep').style.display = 'block';
+  document.getElementById('bookingSummaryStep').style.display = 'none';
 
   const testsInfo = document.getElementById('modalTestsInfo');
   const testsSelect = document.getElementById('modalTestsSelect');
@@ -1792,6 +1826,67 @@ function openEditModal(btn) {
 
     updateBookingTotal();
   }, 100);
+}
+
+function showBookingSummary() {
+  const checked = [...document.querySelectorAll('.test-checkbox:checked')];
+  const date = document.getElementById('bookingDate').value;
+  const time = document.getElementById('bookingTime').value;
+
+  if (checked.length < 1 || checked.length > 3) {
+    alert('اختاري من تحليل واحد إلى ثلاثة تحاليل');
+    return;
+  }
+  if (!date) { alert('اختاري اليوم أولاً'); return; }
+  if (!time) { alert('اختاري الوقت أولاً'); return; }
+
+  const labName = document.getElementById('modalLabName').textContent;
+  const total = checked.reduce((sum, cb) => sum + Number(cb.dataset.price || 0), 0);
+
+  const [h, m] = time.split(':');
+  const hNum = parseInt(h);
+  const suffix = hNum < 12 ? 'ص' : 'م';
+  const h12 = hNum % 12 || 12;
+  const timeFormatted = `${h12}:${m} ${suffix}`;
+
+  const testsRows = checked.map(cb => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0ebe4;">
+      <span style="font-size:0.88rem;color:#333;">${cb.value}</span>
+      <span style="font-size:0.85rem;font-weight:700;color:var(--deep-red);">${cb.dataset.price} ريال</span>
+    </div>`).join('');
+
+  document.getElementById('summaryContent').innerHTML = `
+    <div style="background:#fff;border:1px solid #eee4d9;border-radius:14px;padding:18px;margin-bottom:4px;">
+      <div class="summary-row">
+        <span class="summary-label">المختبر</span>
+        <span class="summary-value">${labName}</span>
+      </div>
+      <div style="padding:12px 0;border-bottom:1px solid #f0ebe4;">
+        <div class="summary-label" style="margin-bottom:10px;">التحاليل المختارة</div>
+        ${testsRows}
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">التاريخ</span>
+        <span class="summary-value">${date}</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">الوقت</span>
+        <span class="summary-value">${timeFormatted}</span>
+      </div>
+      <div class="summary-row" style="border-bottom:none;padding-top:14px;">
+        <span class="summary-label" style="font-weight:800;color:#222;font-size:0.95rem;">السعر الإجمالي</span>
+        <span class="summary-value" style="font-size:1.15rem;font-weight:800;color:var(--deep-red);">${total} ريال</span>
+      </div>
+    </div>`;
+
+  document.getElementById('bookingFormStep').style.display = 'none';
+  document.getElementById('bookingSummaryStep').style.display = 'block';
+  document.getElementById('confirmBox').style.display = 'none';
+}
+
+function backToBookingForm() {
+  document.getElementById('bookingFormStep').style.display = 'block';
+  document.getElementById('bookingSummaryStep').style.display = 'none';
 }
 
 function filterLabsByTest() {
