@@ -1,3 +1,10 @@
+<script>
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) {
+    window.location.replace('index.php');
+  }
+});
+</script>
 <?php if (!empty($_GET['welcome'])):
   $isSignup = $_GET['welcome'] === 'signup';
   $msg = $isSignup
