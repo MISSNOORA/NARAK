@@ -1290,6 +1290,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
         </div>
           
         <div id="labsListContainer" style="display:flex;flex-direction:column;gap:12px;">
+          <div id="labsNoResults" style="display:none;text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد نتائج</div>
           <?php if (empty($labsList)): ?>
             <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد مختبرات متاحة حالياً.</div>
           <?php else: ?>
@@ -1797,6 +1798,9 @@ function filterLabsByTest() {
   const searchInput = document.getElementById('labTestSearch');
   const query = searchInput.value.trim().toLowerCase();
   const labs = [...document.querySelectorAll('.lab-item-searchable')];
+  const noResults = document.getElementById('labsNoResults');
+
+  let hasMatch = false;
 
   labs.forEach(lab => {
     const tests = lab.dataset.tests.toLowerCase();
@@ -1805,9 +1809,12 @@ function filterLabsByTest() {
     pills.forEach(pill => pill.classList.remove('highlighted'));
 
     if (query === '') {
+      lab.style.display = '';
       lab.style.order = '0';
     } else if (tests.includes(query)) {
+      lab.style.display = '';
       lab.style.order = '-1';
+      hasMatch = true;
 
       pills.forEach(pill => {
         if (pill.textContent.trim().toLowerCase().includes(query)) {
@@ -1815,9 +1822,12 @@ function filterLabsByTest() {
         }
       });
     } else {
+      lab.style.display = 'none';
       lab.style.order = '1';
     }
   });
+
+  noResults.style.display = (query !== '' && !hasMatch) ? 'block' : 'none';
 }
 </script>
 </body>
