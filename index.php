@@ -587,6 +587,7 @@ if (isset($_GET['error'])) {
         <?php if ($active_panel === 'signup' && $error_msg): ?>
           <div class="error-msg"><?= htmlspecialchars($error_msg) ?></div>
         <?php endif; ?>
+        <div class="error-msg" id="signup-js-error" style="display:none;">الرجاء تعبئة جميع الحقول المطلوبة</div>
 
         <button class="btn-primary" type="submit">إنشاء الحساب</button>
       </div>
@@ -620,6 +621,21 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script>
+document.querySelector('form[action="signup_process.php"]').addEventListener('submit', function (e) {
+  var fields = ['first_name', 'last_name', 'email', 'phone', 'password'];
+  var allEmpty = fields.every(function (name) {
+    return !document.querySelector('[name="' + name + '"]').value.trim();
+  });
+  var errEl = document.getElementById('signup-js-error');
+  if (allEmpty) {
+    e.preventDefault();
+    errEl.style.display = 'block';
+    errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    errEl.style.display = 'none';
+  }
+});
+
 document.querySelectorAll('.role-selector .role-btn').forEach(label => {
   label.addEventListener('click', function () {
     document.querySelectorAll('.role-selector .role-btn').forEach(btn => btn.classList.remove('selected'));
