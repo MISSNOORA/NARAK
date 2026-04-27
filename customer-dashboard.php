@@ -1173,6 +1173,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 </style>
 </head>
 <body>
+<?php include 'welcome_toast.php'; ?>
 <header class="topbar">
   <div class="topbar-right">
     <div class="topbar-logo">
@@ -1343,7 +1344,9 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
             <?php endforeach; ?>
           <?php endif; ?>
         </div>
-      
+      </div><!-- /card: Available Labs -->
+    </div><!-- /content-grid -->
+
   <div class="booking-overlay" id="bookingOverlay">
   <div class="booking-modal">
     <button class="booking-close" onclick="closeBookingModal()">✕</button>
@@ -1482,7 +1485,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 </div>
       
   <!-- Latest Results -->
-<div class="card results-card">
+<div class="card results-card" style="margin-top: 24px;">
   <div class="card-header">
     <div>
       <div class="card-title"> نتائج الفحوصات</div>

@@ -52,19 +52,19 @@ if ($row = mysqli_fetch_assoc($result)) {
 
         if ($role === "customer") {
             $_SESSION["full_name"] = $row["first_name"] . " " . $row["last_name"];
-            header("Location: customer-dashboard.php");
+            header("Location: customer-dashboard.php?welcome=login");
             exit;
         }
 
         if ($role === "lab") {
             $_SESSION["full_name"] = $row["lab_name"];
-            header("Location: lab-dashboard.php");
+            header("Location: lab-dashboard.php?welcome=login");
             exit;
         }
 
         if ($role === "admin") {
             $_SESSION["full_name"] = $row["full_name"];
-            header("Location: admin-dashboard.php");
+            header("Location: admin-dashboard.php?welcome=login");
             exit;
         }
 

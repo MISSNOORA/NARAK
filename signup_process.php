@@ -104,7 +104,7 @@ if (mysqli_stmt_execute($stmt)) {
     $_SESSION["email"] = $email;
 
     mysqli_stmt_close($stmt);
-    header("Location: customer-dashboard.php");
+    header("Location: customer-dashboard.php?welcome=signup");
     exit;
 } else {
     mysqli_stmt_close($stmt);

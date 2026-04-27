@@ -442,6 +442,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 </style>
 </head>
 <body>
+<?php include 'welcome_toast.php'; ?>
 
 <aside class="sidebar">
   <div class="sidebar-logo">

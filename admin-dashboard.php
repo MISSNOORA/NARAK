@@ -430,6 +430,7 @@ $allAppointments = mysqli_query($conn, "
 </style>
 </head>
 <body>
+<?php include 'welcome_toast.php'; ?>
 
 <aside class="sidebar">
   <div class="sidebar-logo">
