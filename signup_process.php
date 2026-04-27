@@ -74,6 +74,18 @@ if (mysqli_stmt_num_rows($stmt) > 0) {
 
 mysqli_stmt_close($stmt);
 
+$checkPhone = "SELECT customer_id FROM customer WHERE phone_number = ?";
+$stmtPhone = mysqli_prepare($conn, $checkPhone);
+mysqli_stmt_bind_param($stmtPhone, "s", $phone);
+mysqli_stmt_execute($stmtPhone);
+mysqli_stmt_store_result($stmtPhone);
+if (mysqli_stmt_num_rows($stmtPhone) > 0) {
+    mysqli_stmt_close($stmtPhone);
+    header("Location: index.php?panel=signup&error=phone_exists");
+    exit;
+}
+mysqli_stmt_close($stmtPhone);
+
 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
 $insertSql = "INSERT INTO customer (first_name, last_name, email, phone_number, password_hash, address)
