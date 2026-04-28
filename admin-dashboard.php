@@ -80,9 +80,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_lab"])) {
 
         $stmt = mysqli_prepare($conn, "INSERT INTO laboratory (lab_name, lab_logo, email, phone_number, address, password_hash) VALUES (?, ?, ?, ?, ?, ?)");
         mysqli_stmt_bind_param($stmt, "ssssss", $lab_name, $lab_logo, $email, $phone_number, $address, $password_hash);
-        mysqli_stmt_execute($stmt);
+        $inserted = mysqli_stmt_execute($stmt);
+        $newLabId = (int)mysqli_insert_id($conn);
 
-        $newLabId = mysqli_insert_id($conn);
+        if (!$inserted || $newLabId === 0) {
+            header("Location: admin-dashboard.php?tab=labs&lab_error=duplicate");
+            exit;
+        }
 
         /* التحاليل الجاهزة مع الأسعار */
         if (!empty($_POST["tests"]) && is_array($_POST["tests"])) {
@@ -128,7 +132,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_lab"])) {
             }
         }
 
-        header("Location: admin-dashboard.php");
+        header("Location: admin-dashboard.php?tab=labs&lab_success=1");
+        exit;
+    } else {
+        header("Location: admin-dashboard.php?tab=labs&lab_error=missing");
         exit;
     }
 }
@@ -658,6 +665,20 @@ $allAppointments = mysqli_query($conn, "
             <div class="card-title">إضافة مختبر جديد</div>
           </div>
 
+          <?php if (($_GET['lab_success'] ?? '') === '1'): ?>
+            <div style="background:#e8f4ea;border-right:4px solid #2d7a3a;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.88rem;color:#1b5e20;font-weight:600;">
+              ✓ تم إضافة المختبر بنجاح
+            </div>
+          <?php elseif (($_GET['lab_error'] ?? '') === 'missing'): ?>
+            <div style="background:#fff3cd;border-right:4px solid #c8860a;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.88rem;color:#7a4f00;font-weight:600;">
+              يرجى ملء جميع الحقول المطلوبة
+            </div>
+          <?php elseif (($_GET['lab_error'] ?? '') === 'duplicate'): ?>
+            <div style="background:#fdecea;border-right:4px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.88rem;color:#b71c1c;font-weight:600;">
+              البريد الإلكتروني مسجل مسبقاً، يرجى استخدام بريد آخر
+            </div>
+          <?php endif; ?>
+
           <form method="POST" enctype="multipart/form-data">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
 
@@ -699,9 +720,9 @@ $allAppointments = mysqli_query($conn, "
 
               <div>
                 <label style="display:block;font-size:0.8rem;font-weight:700;color:#444;margin-bottom:6px;">زيارة منزلية</label>
-                <select style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-                  <option>نعم</option>
-                  <option>لا</option>
+                <select name="home_visit" style="width:100%;padding:12px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+                  <option value="نعم">نعم</option>
+                  <option value="لا">لا</option>
                 </select>
               </div>
             </div>
