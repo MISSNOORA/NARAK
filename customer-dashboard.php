@@ -132,6 +132,29 @@ while ($row = mysqli_fetch_assoc($rsPast)) {
     }
 }
 
+// ── Cancelled appointments ─────────────────────────────────────────────────
+$sqlCancelled = "
+    SELECT
+        a.appointment_id,
+        l.lab_name,
+        ts.slot_date,
+        ts.slot_time,
+        GROUP_CONCAT(tt.test_name ORDER BY tt.test_name SEPARATOR '، ') AS test_names,
+        COALESCE(SUM(tt.price), 0) AS total_price
+    FROM appointment a
+    JOIN laboratory              l   ON a.lab_id        = l.lab_id
+    JOIN time_slot               ts  ON a.slot_id        = ts.slot_id
+    LEFT JOIN appointment_test_type att ON a.appointment_id = att.appointment_id
+    LEFT JOIN test_type          tt  ON att.test_type_id   = tt.test_type_id
+    WHERE a.customer_id = ? AND a.status = 'cancelled'
+    GROUP BY a.appointment_id
+    ORDER BY ts.slot_date DESC
+";
+$stmtCancelled = mysqli_prepare($conn, $sqlCancelled);
+mysqli_stmt_bind_param($stmtCancelled, 'i', $customerId);
+mysqli_stmt_execute($stmtCancelled);
+$cancelledAppointments = mysqli_fetch_all(mysqli_stmt_get_result($stmtCancelled), MYSQLI_ASSOC);
+
 // ── Upcoming appointments (pending / confirmed / in-progress) ──────────────
 $sqlUpcoming = "
     SELECT
@@ -995,6 +1018,57 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
   border-top:1px solid #f0ebe4;
 }
 
+/* Cancelled appointments variant */
+.cancelled-appointment-item{
+  border:1px solid #f5d0d0;
+  border-radius:16px;
+  overflow:hidden;
+  background:#fff8f8;
+}
+.cancelled-appointment-header{
+  width:100%;
+  background:#fff8f8;
+  border:none;
+  padding:18px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  cursor:pointer;
+  font-family:'Tajawal', sans-serif;
+  text-align:right;
+}
+.cancelled-appointment-item.open .cancelled-arrow{
+  transform:rotate(180deg);
+}
+.cancelled-arrow{
+  font-size:1.1rem;
+  color:#b71c1c;
+  transition:transform 0.25s ease;
+  flex-shrink:0;
+}
+.cancelled-appointment-body{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height 0.3s ease, padding 0.3s ease;
+  background:#fff;
+  padding:0 20px;
+}
+.cancelled-appointment-item.open .cancelled-appointment-body{
+  max-height:300px;
+  padding:16px 20px 18px;
+  border-top:1px solid #f5d0d0;
+}
+.two-col-appointments{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+  align-items:start;
+}
+@media(max-width:768px){
+  .two-col-appointments{ grid-template-columns:1fr; }
+}
+
 .past-results-grid{
   display:grid;
   grid-template-columns:repeat(2, 1fr);
@@ -1452,64 +1526,87 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
   </div>
 </div>
 
-      <!-- Previous Appointments -->
+      <!-- Previous & Cancelled Appointments -->
 <div class="card results-card">
-  <div class="card-header">
-    <div>
-      <div class="card-title">المواعيد السابقة</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;align-items:start;">
+
+    <!-- Past completed (right column in RTL) -->
+    <div style="padding:4px 4px 4px 0;border-left:1px solid #f0ebe4;">
+      <div style="font-size:1rem;font-weight:700;color:#222;margin-bottom:16px;padding-right:4px;">المواعيد السابقة</div>
+      <div class="past-appointments-list">
+        <?php if (empty($pastAppointments)): ?>
+          <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد مواعيد سابقة حتى الآن.</div>
+        <?php else: ?>
+          <?php foreach ($pastAppointments as $apt): ?>
+            <?php
+              $testNames  = implode('، ', array_column($apt['tests'], 'name'));
+              $totalPrice = number_format($apt['total'], 0);
+            ?>
+            <div class="past-appointment-item">
+              <button class="past-appointment-header" onclick="togglePastAppointment(this)">
+                <div class="past-appointment-main">
+                  <div class="past-appointment-title"><?= htmlspecialchars($apt['lab_name']) ?></div>
+                  <div class="past-appointment-meta">
+                    <span>التاريخ: <?= arabicDate($apt['slot_date']) ?></span>
+                    <span>الوقت: <?= formatSlotTime($apt['slot_time']) ?></span>
+                    <span>التحاليل: <?= htmlspecialchars($testNames ?: '—') ?></span>
+                    <span>السعر: <?= $totalPrice ?> ريال</span>
+                  </div>
+                </div>
+                <span class="past-arrow">⌃</span>
+              </button>
+              <div class="past-appointment-body">
+                <div class="past-results-grid">
+                  <?php foreach ($apt['tests'] as $t):
+                    $statusLabel = match($t['status_flag'] ?? '') {
+                      'low'    => 'منخفض',
+                      'high'   => 'مرتفع',
+                      'normal' => 'طبيعي',
+                      default  => 'قيد المعالجة',
+                    };
+                    $suffix = $t['unit'] ? ' ' . $t['unit'] : '';
+                  ?>
+                  <div class="past-result-card">
+                    <strong><?= htmlspecialchars($t['name']) ?></strong>
+                    <?php if ($t['result_value'] !== null): ?>
+                      <span>النتيجة: <?= htmlspecialchars($t['result_value'] . $suffix) ?></span>
+                      <span>الحالة: <?= $statusLabel ?></span>
+                    <?php else: ?>
+                      <span style="color:#aaa;">النتيجة: قيد المعالجة</span>
+                    <?php endif; ?>
+                  </div>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
     </div>
-  </div>
 
-  <div class="past-appointments-list">
-
-    <?php if (empty($pastAppointments)): ?>
-      <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد مواعيد سابقة حتى الآن.</div>
-    <?php else: ?>
-      <?php foreach ($pastAppointments as $apt): ?>
-        <?php
-          $testNames  = implode('، ', array_column($apt['tests'], 'name'));
-          $totalPrice = number_format($apt['total'], 0);
-        ?>
-        <div class="past-appointment-item">
-          <button class="past-appointment-header" onclick="togglePastAppointment(this)">
-            <div class="past-appointment-main">
-              <div class="past-appointment-title"><?= htmlspecialchars($apt['lab_name']) ?></div>
+    <!-- Cancelled (left column in RTL) -->
+    <div style="padding:4px 20px 4px 4px;border-right:4px solid #c62828;">
+      <div style="font-size:1rem;font-weight:700;color:#b71c1c;margin-bottom:16px;">المواعيد الملغاة</div>
+      <div class="past-appointments-list">
+        <?php if (empty($cancelledAppointments)): ?>
+          <div style="text-align:center;padding:32px;color:#aaa;font-size:0.95rem;">لا توجد مواعيد ملغاة.</div>
+        <?php else: ?>
+          <?php foreach ($cancelledAppointments as $apt): ?>
+            <div class="cancelled-appointment-item" style="padding:18px 20px;">
+              <div class="past-appointment-title" style="color:#b71c1c;margin-bottom:8px;"><?= htmlspecialchars($apt['lab_name']) ?></div>
               <div class="past-appointment-meta">
                 <span>التاريخ: <?= arabicDate($apt['slot_date']) ?></span>
                 <span>الوقت: <?= formatSlotTime($apt['slot_time']) ?></span>
-                <span>التحاليل: <?= htmlspecialchars($testNames ?: '—') ?></span>
-                <span>السعر: <?= $totalPrice ?> ريال</span>
-              </div>
-            </div>
-            <span class="past-arrow">⌃</span>
-          </button>
-
-          <div class="past-appointment-body">
-            <div class="past-results-grid">
-              <?php foreach ($apt['tests'] as $t):
-                $statusLabel = match($t['status_flag'] ?? '') {
-                  'low'  => 'منخفض',
-                  'high' => 'مرتفع',
-                  'normal' => 'طبيعي',
-                  default  => 'قيد المعالجة',
-                };
-                $suffix = $t['unit'] ? ' ' . $t['unit'] : '';
-              ?>
-              <div class="past-result-card">
-                <strong><?= htmlspecialchars($t['name']) ?></strong>
-                <?php if ($t['result_value'] !== null): ?>
-                  <span>النتيجة: <?= htmlspecialchars($t['result_value'] . $suffix) ?></span>
-                  <span>الحالة: <?= $statusLabel ?></span>
-                <?php else: ?>
-                  <span style="color:#aaa;">النتيجة: قيد المعالجة</span>
+                <?php if ($apt['test_names']): ?>
+                  <span>التحاليل: <?= htmlspecialchars($apt['test_names']) ?></span>
                 <?php endif; ?>
+                <span>السعر: <?= number_format((float)$apt['total_price'], 0) ?> ريال</span>
               </div>
-              <?php endforeach; ?>
             </div>
-          </div>
-        </div>
-      <?php endforeach; ?>
-    <?php endif; ?>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
+    </div>
 
   </div>
 </div>
@@ -1633,10 +1730,15 @@ function openComparison(key) {
   box.scrollIntoView({ behavior: 'smooth', block: 'start' });}
   
   function togglePastAppointment(button) {
-  const item = button.parentElement;
-  item.classList.toggle('open');
-}
-  
+    const item = button.parentElement;
+    item.classList.toggle('open');
+  }
+
+  function toggleCancelledAppointment(button) {
+    const item = button.parentElement;
+    item.classList.toggle('open');
+  }
+
 // Build labsData from DB for the edit modal
 const labsData = {
 <?php foreach ($labsList as $lab):
