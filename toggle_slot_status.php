@@ -18,10 +18,18 @@ if ($slotId <= 0 || ($newStatus !== 0 && $newStatus !== 1)) {
     exit;
 }
 
-$sql = "UPDATE time_slot
-        SET is_available = ?
-        WHERE slot_id = ? AND lab_id = ?";
+/* Block re-activation if the slot is held by an active appointment */
+if ($newStatus === 1) {
+    $chk = mysqli_prepare($conn, "SELECT appointment_id FROM appointment WHERE slot_id = ? AND status NOT IN ('cancelled') LIMIT 1");
+    mysqli_stmt_bind_param($chk, "i", $slotId);
+    mysqli_stmt_execute($chk);
+    if (mysqli_fetch_assoc(mysqli_stmt_get_result($chk))) {
+        header("Location: lab-dashboard.php");
+        exit;
+    }
+}
 
+$sql = "UPDATE time_slot SET is_available = ? WHERE slot_id = ? AND lab_id = ?";
 $stmt = mysqli_prepare($conn, $sql);
 mysqli_stmt_bind_param($stmt, "iii", $newStatus, $slotId, $labId);
 mysqli_stmt_execute($stmt);

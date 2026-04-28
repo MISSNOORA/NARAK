@@ -17,10 +17,10 @@ if (!$appointmentId) {
     exit;
 }
 
-// Verify the appointment belongs to this customer and is still pending
+// Verify the appointment belongs to this customer and is cancellable
 $stmt = mysqli_prepare($conn,
     "SELECT slot_id FROM appointment
-     WHERE appointment_id = ? AND customer_id = ? AND status = 'pending'
+     WHERE appointment_id = ? AND customer_id = ? AND status IN ('pending','delayed','overdue')
      LIMIT 1"
 );
 mysqli_stmt_bind_param($stmt, 'ii', $appointmentId, $customerId);

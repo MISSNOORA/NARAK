@@ -23,6 +23,15 @@ if ($slotDate < date('Y-m-d')) {
     exit;
 }
 
+/* منع التكرار — نفس المختبر والتاريخ والوقت */
+$dup = mysqli_prepare($conn, "SELECT slot_id FROM time_slot WHERE lab_id = ? AND slot_date = ? AND slot_time = ? LIMIT 1");
+mysqli_stmt_bind_param($dup, "iss", $labId, $slotDate, $slotTime);
+mysqli_stmt_execute($dup);
+if (mysqli_fetch_assoc(mysqli_stmt_get_result($dup))) {
+    header("Location: lab-dashboard.php");
+    exit;
+}
+
 /* إضافة الوقت */
 $sql = "INSERT INTO time_slot (lab_id, slot_date, slot_time, is_available)
         VALUES (?, ?, ?, 1)";

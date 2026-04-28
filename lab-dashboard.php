@@ -40,10 +40,10 @@ mysqli_stmt_execute($stmt);
 $res = mysqli_stmt_get_result($stmt);
 $stats['today_appointments'] = mysqli_fetch_assoc($res)['total'];
 
-/* طلبات pending */
+/* طلبات pending / delayed / overdue */
 $sqlPending = "SELECT COUNT(*) AS total
                FROM appointment
-               WHERE lab_id = ? AND status = 'pending'";
+               WHERE lab_id = ? AND status IN ('pending','delayed','overdue')";
 $stmt = mysqli_prepare($conn, $sqlPending);
 mysqli_stmt_bind_param($stmt, "i", $labId);
 mysqli_stmt_execute($stmt);
@@ -142,10 +142,17 @@ $lab = mysqli_fetch_assoc($labResult);
 <?php
 $slots = [];
 
-$sqlSlots = "SELECT slot_id, slot_date, slot_time, is_available
-             FROM time_slot
-             WHERE lab_id = ?
-             ORDER BY slot_date ASC, slot_time ASC";
+$sqlSlots = "
+    SELECT ts.slot_id, ts.slot_date, ts.slot_time, ts.is_available,
+           EXISTS(
+               SELECT 1 FROM appointment a
+               WHERE a.slot_id = ts.slot_id AND a.status NOT IN ('cancelled')
+           ) AS has_appointment
+    FROM time_slot ts
+    WHERE ts.lab_id = ?
+      AND ts.slot_date >= CURDATE()
+    ORDER BY ts.slot_date ASC, ts.slot_time ASC
+";
 
 $stmt = mysqli_prepare($conn, $sqlSlots);
 mysqli_stmt_bind_param($stmt, "i", $labId);
@@ -154,6 +161,30 @@ $result = mysqli_stmt_get_result($stmt);
 
 while ($row = mysqli_fetch_assoc($result)) {
     $slots[] = $row;
+}
+
+/* Slot data keyed by date → for calendar cell coloring */
+$slotDatesData = [];
+/* Slot data keyed by date → array of {slot_time, is_available, has_appointment} for time-grid */
+$slotsByDate   = [];
+foreach ($slots as $s) {
+    $d = $s['slot_date'];
+    $t = substr($s['slot_time'], 0, 5); // HH:MM
+
+    if (!isset($slotDatesData[$d])) {
+        $slotDatesData[$d] = ['has_available' => false, 'has_booked' => false];
+    }
+    if ((int)$s['has_appointment'] === 1) {
+        $slotDatesData[$d]['has_booked'] = true;
+    } elseif ((int)$s['is_available'] === 1) {
+        $slotDatesData[$d]['has_available'] = true;
+    }
+
+    $slotsByDate[$d][] = [
+        'slot_time'       => $t,
+        'is_available'    => (int)$s['is_available'],
+        'has_appointment' => (int)$s['has_appointment'],
+    ];
 }
 ?>
 
@@ -354,9 +385,11 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
   .card-title { font-size: 1rem; font-weight: 700; color: #222; }
 
   .status-badge { font-size: 0.72rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; }
-  .status-pending { background: #fff8e6; color: #c8860a; }
+  .status-pending   { background: #fff8e6; color: #c8860a; }
   .status-confirmed { background: #e8f4ea; color: #2d7a3a; }
-  .status-progress { background: #e8f0fc; color: #2a5cc4; }
+  .status-progress  { background: #e8f0fc; color: #2a5cc4; }
+  .status-delayed   { background: #fff3e0; color: #e65100; }
+  .status-overdue   { background: #fce4ec; color: #880e4f; }
   .status-done { background: #f0f0f0; color: #666; }
   .status-cancelled { background: #fce8e8; color: #c42a2a; }
 
@@ -429,18 +462,48 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
 }
 
   /* slots calendar */
-  .month-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin-top: 12px; }
+  .month-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin-top: 4px; }
   .day-cell {
     aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center;
     justify-content: center; font-size: 0.82rem; font-weight: 500; cursor: pointer;
     transition: all 0.15s;
   }
-  .day-cell.empty { visibility: hidden; }
-  .day-cell.available { background: rgba(82,0,0,0.07); color: var(--deep-red); }
-  .day-cell.available:hover { background: var(--deep-red); color: #fff; }
-  .day-cell.booked { background: var(--light-beige); color: var(--deep-red); font-weight: 700; }
-  .day-cell.past { background: #f5f5f5; color: #ccc; cursor: default; }
-  .day-cell.today { background: var(--deep-red); color: #fff; font-weight: 700; }
+  .day-cell.empty   { visibility: hidden; }
+  .day-cell.past    { background: #f5f5f5; color: #ccc; cursor: default; }
+  .day-cell.no-slot { background: transparent; color: #bbb; }
+  .day-cell.no-slot:hover  { background: rgba(82,0,0,0.05); color: var(--deep-red); }
+  .day-cell.available      { background: rgba(82,0,0,0.07); color: var(--deep-red); }
+  .day-cell.available:hover{ background: var(--deep-red); color: #fff; }
+  .day-cell.booked         { background: var(--light-beige); color: var(--deep-red); font-weight: 700; }
+  .day-cell.booked:hover   { background: #d9a96a; }
+  .day-cell.today          { background: var(--deep-red); color: #fff; font-weight: 700; }
+  .day-cell.today:hover    { background: #3d0000; }
+  .day-cell.selected       { outline: 2.5px solid var(--deep-red); font-weight: 700; }
+
+  .cal-nav-btn {
+    background: none; border: 1.5px solid #e8e0d8; border-radius: 8px;
+    padding: 5px 14px; cursor: pointer; font-family: 'Tajawal', sans-serif;
+    font-size: 0.82rem; color: #555; transition: all 0.2s;
+  }
+  .cal-nav-btn:hover:not(:disabled) { border-color: var(--deep-red); color: var(--deep-red); }
+  .cal-nav-btn:disabled { color: #ccc; border-color: #eee; cursor: default; }
+
+  /* Time-slot grid cards */
+  .time-slot-card { border-radius: 10px; padding: 10px 6px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .time-slot-card .t-label  { font-size: 0.82rem; font-weight: 700; color: #222; }
+  .time-slot-card .t-status { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+  .slot-available            { background: #e8f4ea; }
+  .slot-available .t-status  { color: #2d7a3a; background: #c5e8c9; }
+  .slot-booked               { background: #fff8e6; }
+  .slot-booked    .t-status  { color: #c8860a; background: #fce8b4; }
+  .slot-off                  { background: #f5f5f5; }
+  .slot-off       .t-status  { color: #999; background: #e0e0e0; }
+  .t-toggle-btn { font-family: 'Tajawal', sans-serif; font-size: 0.7rem; padding: 3px 10px; border-radius: 8px; background: #fff; cursor: pointer; transition: all 0.18s; }
+  .slot-available .t-toggle-btn { border: 1px solid #c42a2a; color: #c42a2a; }
+  .slot-available .t-toggle-btn:hover { background: #fff5f5; }
+  .slot-off       .t-toggle-btn { border: 1px solid var(--deep-red); color: var(--deep-red); }
+  .slot-off       .t-toggle-btn:hover { background: rgba(82,0,0,0.05); }
+  .t-toggle-btn:disabled { opacity: 0.5; cursor: default; }
 
   .day-name { font-size: 0.7rem; font-weight: 700; color: #aaa; text-align: center; padding: 4px 0; }
 </style>
@@ -544,14 +607,15 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
               $statusText = "في الانتظار";
 
               if ($appt['status'] == "confirmed") {
-                $statusClass = "status-confirmed";
-                $statusText = "مؤكد";
+                $statusClass = "status-confirmed"; $statusText = "مؤكد";
               } elseif ($appt['status'] == "completed") {
-                $statusClass = "status-done";
-                $statusText = "مكتمل";
+                $statusClass = "status-done";      $statusText = "مكتمل";
               } elseif ($appt['status'] == "cancelled") {
-                $statusClass = "status-cancelled";
-                $statusText = "ملغي";
+                $statusClass = "status-cancelled"; $statusText = "ملغي";
+              } elseif ($appt['status'] == "delayed") {
+                $statusClass = "status-delayed";   $statusText = "متأخر";
+              } elseif ($appt['status'] == "overdue") {
+                $statusClass = "status-overdue";   $statusText = "منتهي";
               }
             ?>
 
@@ -645,14 +709,15 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
         $statusText = 'في الانتظار';
 
         if ($appt['status'] === 'confirmed') {
-            $statusClass = 'status-confirmed';
-            $statusText = 'مؤكد';
+            $statusClass = 'status-confirmed'; $statusText = 'مؤكد';
         } elseif ($appt['status'] === 'completed') {
-            $statusClass = 'status-done';
-            $statusText = 'مكتمل';
+            $statusClass = 'status-done';      $statusText = 'مكتمل';
         } elseif ($appt['status'] === 'cancelled') {
-            $statusClass = 'status-cancelled';
-            $statusText = 'ملغي';
+            $statusClass = 'status-cancelled'; $statusText = 'ملغي';
+        } elseif ($appt['status'] === 'delayed') {
+            $statusClass = 'status-delayed';   $statusText = 'متأخر';
+        } elseif ($appt['status'] === 'overdue') {
+            $statusClass = 'status-overdue';   $statusText = 'منتهي';
         }
       ?>
       <span class="status-badge <?php echo $statusClass; ?>">
@@ -695,202 +760,84 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
   
   <!-- SLOTS MANAGEMENT -->
   <div class="section" id="sec-slots">
-  <div class="page-header">
-    <div class="page-title">
-      <h1>إدارة الأوقات المتاحة</h1>
-      <p>أضف وأدر الأوقات المتاحة للزيارات المنزلية</p>
-    </div>
-    <button class="btn btn-primary" onclick="alert('تم حفظ الأوقات المتاحة بنجاح')">حفظ التعديلات</button>
-  </div>
-      <div class="card" style="margin-bottom:20px;">
-  <div class="card-header">
-    <div class="card-title">إضافة وقت جديد</div>
-  </div>
-
-  <form method="POST" action="add_time_slot.php" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;">
-    
-    <div>
-      <label style="display:block;font-size:0.82rem;font-weight:600;color:#444;margin-bottom:6px;">التاريخ</label>
-      <input type="date" name="slot_date" required
-             style="width:100%;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
+    <div class="page-header">
+      <div class="page-title">
+        <h1>إدارة الأوقات المتاحة</h1>
+        <p>اضغط على يوم في التقويم لإضافة وقت متاح</p>
+      </div>
     </div>
 
-    <div>
-      <label style="display:block;font-size:0.82rem;font-weight:600;color:#444;margin-bottom:6px;">الوقت</label>
-      <input type="time" name="slot_time" required
-             style="width:100%;padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;">
-    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
 
-    <div>
-      <button type="submit" class="btn btn-primary" style="width:100%;">إضافة وقت</button>
-    </div>
-
-  </form>
-</div>
-
-  <?php
-  $currentYear = date('Y');
-  $currentMonthNum = date('m');
-  $daysInMonth = date('t');
-  $firstDayOfMonth = date('w', strtotime("$currentYear-$currentMonthNum-01"));
-  $todayDate = date('Y-m-d');
-
-  $slotsMap = [];
-
-  $sqlSlotsCalendar = "SELECT slot_date, is_available
-                       FROM time_slot
-                       WHERE lab_id = ?
-                       AND YEAR(slot_date) = ?
-                       AND MONTH(slot_date) = ?";
-  $stmt = mysqli_prepare($conn, $sqlSlotsCalendar);
-  mysqli_stmt_bind_param($stmt, "iii", $labId, $currentYear, $currentMonthNum);
-  mysqli_stmt_execute($stmt);
-  $resultSlotsCalendar = mysqli_stmt_get_result($stmt);
-
-  while ($row = mysqli_fetch_assoc($resultSlotsCalendar)) {
-      $dayNum = (int)date('j', strtotime($row['slot_date']));
-
-      if (!isset($slotsMap[$dayNum])) {
-          $slotsMap[$dayNum] = [
-              'has_available' => false,
-              'has_booked' => false
-          ];
-      }
-
-      if ((int)$row['is_available'] === 1) {
-          $slotsMap[$dayNum]['has_available'] = true;
-      } else {
-          $slotsMap[$dayNum]['has_booked'] = true;
-      }
-  }
-
-  $monthNames = [
-      '01' => 'يناير',
-      '02' => 'فبراير',
-      '03' => 'مارس',
-      '04' => 'أبريل',
-      '05' => 'مايو',
-      '06' => 'يونيو',
-      '07' => 'يوليو',
-      '08' => 'أغسطس',
-      '09' => 'سبتمبر',
-      '10' => 'أكتوبر',
-      '11' => 'نوفمبر',
-      '12' => 'ديسمبر'
-  ];
-
-  $currentMonthTitle = $monthNames[$currentMonthNum] . ' ' . $currentYear;
-  ?>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title"><?php echo $currentMonthTitle; ?></div>
-        <div style="display:flex;gap:8px;">
-          <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#888;">
-            <div style="width:12px;height:12px;background:rgba(82,0,0,0.07);border-radius:3px;"></div>متاح
+      <!-- Calendar card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">التقويم</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:#888;">
+              <div style="width:12px;height:12px;background:rgba(82,0,0,0.07);border-radius:3px;"></div>متاح
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:#888;">
+              <div style="width:12px;height:12px;background:var(--light-beige);border-radius:3px;"></div>محجوز
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#888;">
-            <div style="width:12px;height:12px;background:var(--light-beige);border-radius:3px;"></div>محجوز
+        </div>
+
+        <!-- Month navigation -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <button class="cal-nav-btn" id="cal-prev" onclick="changeMonth(-1)">السابق</button>
+          <span id="cal-month-title" style="font-size:0.95rem;font-weight:700;color:#222;"></span>
+          <button class="cal-nav-btn" onclick="changeMonth(1)">التالي</button>
+        </div>
+
+        <!-- Day name headers -->
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;">
+          <div class="day-name">أح</div><div class="day-name">إث</div><div class="day-name">ثل</div>
+          <div class="day-name">أر</div><div class="day-name">خم</div><div class="day-name">جم</div>
+          <div class="day-name">سب</div>
+        </div>
+
+        <!-- Calendar grid — rendered by JS -->
+        <div class="month-grid" id="cal-grid"></div>
+
+        <!-- Time-slots panel: appears after clicking a date -->
+        <div id="slot-add-panel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #f0ebe4;">
+          <div style="font-size:0.82rem;font-weight:600;color:#555;margin-bottom:12px;">
+            أوقات يوم <strong id="selected-date-label" style="color:var(--deep-red);"></strong>
           </div>
+          <div id="slot-time-grid"></div>
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
-        <div class="day-name">أح</div>
-        <div class="day-name">إث</div>
-        <div class="day-name">ثل</div>
-        <div class="day-name">أر</div>
-        <div class="day-name">خم</div>
-        <div class="day-name">جم</div>
-        <div class="day-name">سب</div>
-      </div>
-
-      <div class="month-grid">
-        <?php for ($i = 0; $i < $firstDayOfMonth; $i++): ?>
-          <div class="day-cell empty"></div>
-        <?php endfor; ?>
-
-        <?php for ($day = 1; $day <= $daysInMonth; $day++): ?>
+      <!-- Booked slots card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">الأوقات المحجوزة</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-height:440px;overflow-y:auto;">
           <?php
-          $fullDate = sprintf('%04d-%02d-%02d', $currentYear, $currentMonthNum, $day);
-
-          if ($fullDate < $todayDate) {
-              $cellClass = 'past';
-          } elseif ($fullDate === $todayDate) {
-              $cellClass = 'today';
-          } elseif (isset($slotsMap[$day])) {
-              if ($slotsMap[$day]['has_booked']) {
-                  $cellClass = 'booked';
-              } elseif ($slotsMap[$day]['has_available']) {
-                  $cellClass = 'available';
-              } else {
-                  $cellClass = 'available';
-              }
-          } else {
-              $cellClass = 'available';
-          }
+            $bookedSlots = array_filter($slots, fn($s) => (int)$s['has_appointment'] === 1);
           ?>
-
-          <div class="day-cell <?php echo $cellClass; ?>">
-            <?php echo $day; ?>
-          </div>
-        <?php endfor; ?>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">الأوقات المسجلة</div>
-      </div>
-
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <?php if (!empty($slots)): ?>
-          <?php foreach ($slots as $slot): ?>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#faf8f5;border-radius:10px;">
-              <div>
-                <div style="font-size:0.85rem;font-weight:600;">
-                  <?php echo htmlspecialchars($slot['slot_date']); ?>
+          <?php if (!empty($bookedSlots)): ?>
+            <?php foreach ($bookedSlots as $slot): ?>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#faf8f5;border-radius:10px;">
+                <div>
+                  <div style="font-size:0.85rem;font-weight:600;"><?php echo htmlspecialchars($slot['slot_date']); ?></div>
+                  <div style="font-size:0.75rem;color:#999;margin-top:3px;"><?php echo htmlspecialchars(date('g:i A', strtotime($slot['slot_time']))); ?></div>
                 </div>
-                <div style="font-size:0.75rem;color:#999;margin-top:3px;">
-                  <?php echo htmlspecialchars(date('g:i A', strtotime($slot['slot_time']))); ?>
-                </div>
+                <span style="font-size:0.75rem;color:#c8860a;background:#fff8e6;padding:3px 10px;border-radius:20px;">محجوز</span>
               </div>
-
-              <div style="display:flex;gap:8px;align-items:center;">
-                <?php if ((int)$slot['is_available'] === 1): ?>
-  <span style="font-size:0.75rem;color:#2d7a3a;background:#e8f4ea;padding:3px 10px;border-radius:20px;">متاح</span>
-
-  <form method="POST" action="toggle_slot_status.php" style="margin:0;">
-    <input type="hidden" name="slot_id" value="<?php echo $slot['slot_id']; ?>">
-    <input type="hidden" name="new_status" value="0">
-    <button type="submit" style="font-size:0.75rem;padding:4px 10px;border:1px solid #e8e0d8;border-radius:8px;background:#fff;cursor:pointer;font-family:Tajawal,sans-serif;">
-      تعطيل
-    </button>
-  </form>
-<?php else: ?>
-  <span style="font-size:0.75rem;color:#c8860a;background:#fff8e6;padding:3px 10px;border-radius:20px;">محجوز</span>
-
-  <form method="POST" action="toggle_slot_status.php" style="margin:0;">
-    <input type="hidden" name="slot_id" value="<?php echo $slot['slot_id']; ?>">
-    <input type="hidden" name="new_status" value="1">
-    <button type="submit" style="font-size:0.75rem;padding:4px 10px;border:1px solid var(--deep-red);border-radius:8px;background:#fff;color:var(--deep-red);cursor:pointer;font-family:Tajawal,sans-serif;">
-      تفعيل
-    </button>
-  </form>
-<?php endif; ?>
-              </div>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <div style="padding:14px;background:#faf8f5;border-radius:10px;font-size:0.85rem;color:#777;">
+              لا توجد أوقات محجوزة حالياً
             </div>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <div style="padding:14px;background:#faf8f5;border-radius:10px;font-size:0.85rem;color:#777;">
-            لا توجد أوقات مسجلة حالياً
-          </div>
-        <?php endif; ?>
+          <?php endif; ?>
+        </div>
       </div>
+
     </div>
   </div>
-</div>
 
   <!-- UPLOAD RESULTS -->
   <div class="section" id="sec-results">
@@ -984,6 +931,151 @@ echo json_encode(
 ?>;
 </script>
 <script>
+// ── Interactive calendar ──────────────────────────────────────────────────
+const slotData    = <?php echo json_encode($slotDatesData, JSON_UNESCAPED_UNICODE); ?>;
+const slotsByDate = <?php echo json_encode($slotsByDate,   JSON_UNESCAPED_UNICODE); ?>;
+const todayStr    = '<?php echo date('Y-m-d'); ?>';
+const monthNames  = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
+                     'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+const FIXED_HOURS = [
+  {time:'10:00', label:'10:00 ص'}, {time:'11:00', label:'11:00 ص'},
+  {time:'12:00', label:'12:00 م'}, {time:'13:00', label:'1:00 م'},
+  {time:'14:00', label:'2:00 م'},  {time:'15:00', label:'3:00 م'},
+  {time:'16:00', label:'4:00 م'},  {time:'17:00', label:'5:00 م'},
+  {time:'18:00', label:'6:00 م'},
+];
+
+let calYear      = new Date().getFullYear();
+let calMonth     = new Date().getMonth(); // 0-indexed
+let selectedDate = null;
+
+function renderCalendar() {
+  const daysInMonth    = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay();
+  const firstOfMonth   = new Date(calYear, calMonth, 1);
+  const firstOfToday   = new Date(new Date(todayStr).getFullYear(), new Date(todayStr).getMonth(), 1);
+
+  document.getElementById('cal-month-title').textContent = monthNames[calMonth] + ' ' + calYear;
+  document.getElementById('cal-prev').disabled = firstOfMonth <= firstOfToday;
+
+  let html = '';
+  for (let i = 0; i < firstDayOfWeek; i++) html += '<div class="day-cell empty"></div>';
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const mm = String(calMonth + 1).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    const fullDate = `${calYear}-${mm}-${dd}`;
+
+    let cls, clickable = true;
+    if (fullDate < todayStr)        { cls = 'past';  clickable = false; }
+    else if (fullDate === todayStr) { cls = 'today'; }
+    else if (slotData[fullDate])    { cls = slotData[fullDate].has_booked ? 'booked' : 'available'; }
+    else                            { cls = 'no-slot'; }
+
+    if (fullDate === selectedDate) cls += ' selected';
+    const oc = clickable ? `onclick="selectDate('${fullDate}',this)"` : '';
+    html += `<div class="day-cell ${cls}" data-date="${fullDate}" ${oc}>${day}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+function changeMonth(delta) {
+  calMonth += delta;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  selectedDate = null;
+  document.getElementById('slot-add-panel').style.display = 'none';
+  renderCalendar();
+}
+
+function selectDate(dateStr, el) {
+  selectedDate = dateStr;
+  document.querySelectorAll('#cal-grid .day-cell').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('selected-date-label').textContent = dateStr;
+  document.getElementById('slot-add-panel').style.display = 'block';
+  renderTimeSlots(dateStr);
+}
+
+function renderTimeSlots(dateStr) {
+  const dateSlots = slotsByDate[dateStr] || [];
+  const slotMap   = {};
+  dateSlots.forEach(s => { slotMap[s.slot_time] = s; });
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
+  FIXED_HOURS.forEach(h => {
+    const s = slotMap[h.time];
+    let cardCls, statusText, btnHtml = '';
+
+    if (s && s.has_appointment) {
+      cardCls = 'slot-booked'; statusText = 'محجوز';
+    } else if (s && s.is_available) {
+      cardCls = 'slot-available'; statusText = 'متاح';
+      btnHtml = `<button class="t-toggle-btn" onclick="toggleSlot('${dateStr}','${h.time}','disable',this)">تعطيل</button>`;
+    } else {
+      cardCls = 'slot-off'; statusText = 'معطل';
+      btnHtml = `<button class="t-toggle-btn" onclick="toggleSlot('${dateStr}','${h.time}','enable',this)">تفعيل</button>`;
+    }
+
+    html += `<div class="time-slot-card ${cardCls}">
+      <div class="t-label">${h.label}</div>
+      <div class="t-status">${statusText}</div>
+      ${btnHtml}
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('slot-time-grid').innerHTML = html;
+}
+
+async function toggleSlot(date, time, action, btn) {
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '...';
+
+  try {
+    const fd = new FormData();
+    fd.append('slot_date', date);
+    fd.append('slot_time', time);
+    fd.append('action', action);
+
+    const res  = await fetch('manage_slot.php', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (data.success) {
+      if (!slotsByDate[date]) slotsByDate[date] = [];
+      const idx = slotsByDate[date].findIndex(s => s.slot_time === time);
+      const isNowAvailable = data.new_status === 'available';
+
+      if (idx >= 0) {
+        slotsByDate[date][idx].is_available = isNowAvailable ? 1 : 0;
+      } else {
+        slotsByDate[date].push({ slot_time: time, is_available: isNowAvailable ? 1 : 0, has_appointment: 0 });
+      }
+
+      const all = slotsByDate[date];
+      slotData[date] = {
+        has_booked:    all.some(s => s.has_appointment),
+        has_available: all.some(s => s.is_available && !s.has_appointment),
+      };
+
+      renderCalendar();
+      renderTimeSlots(date);
+    } else {
+      alert(data.message || 'حدث خطأ');
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  } catch (e) {
+    alert('حدث خطأ في الاتصال');
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+renderCalendar();
+// ─────────────────────────────────────────────────────────────────────────
+
 function showSection(name, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-' + name).classList.add('active');

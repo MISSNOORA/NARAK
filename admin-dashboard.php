@@ -133,6 +133,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_lab"])) {
     }
 }
 
+/* Migration: add created_at column if it doesn't exist */
+$colCheck = mysqli_query($conn, "SHOW COLUMNS FROM appointment LIKE 'created_at'");
+if (mysqli_num_rows($colCheck) === 0) {
+    mysqli_query($conn, "ALTER TABLE appointment ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+}
+
+/* Auto-status: overdue — date has already passed and lab never approved */
+mysqli_query($conn, "
+    UPDATE appointment a
+    JOIN time_slot ts ON a.slot_id = ts.slot_id
+    SET a.status = 'overdue'
+    WHERE a.status IN ('pending', 'delayed')
+      AND ts.slot_date < CURDATE()
+");
+
+/* Auto-status: delayed — pending for > 3 days since booking but date not yet passed */
+mysqli_query($conn, "
+    UPDATE appointment a
+    JOIN time_slot ts ON a.slot_id = ts.slot_id
+    SET a.status = 'delayed'
+    WHERE a.status = 'pending'
+      AND DATEDIFF(CURDATE(), a.created_at) > 3
+      AND ts.slot_date >= CURDATE()
+");
+
 /* إحصائيات */
 $totalCustomers = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM customer"))["total"] ?? 0;
 $totalLabs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM laboratory"))["total"] ?? 0;
@@ -189,10 +214,12 @@ $reportsQuery = mysqli_query($conn, "
 
 /* كل الطلبات */
 $allAppointments = mysqli_query($conn, "
-    SELECT a.appointment_id, a.status, ts.slot_date,
+    SELECT a.appointment_id, a.status, ts.slot_date, ts.slot_time,
            CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
-           l.lab_name,
-           GROUP_CONCAT(tt.test_name SEPARATOR '، ') AS tests
+           c.email AS customer_email, c.phone_number AS customer_phone,
+           l.lab_name, l.address AS lab_address, l.phone_number AS lab_phone,
+           GROUP_CONCAT(tt.test_name SEPARATOR '، ') AS tests,
+           COALESCE(SUM(tt.price), 0) AS total_price
     FROM appointment a
     JOIN customer c ON a.customer_id = c.customer_id
     JOIN laboratory l ON a.lab_id = l.lab_id
@@ -306,11 +333,13 @@ $allAppointments = mysqli_query($conn, "
   .card-title { font-size: 1rem; font-weight: 700; color: #222; }
 
   .status-badge { font-size: 0.72rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
-  .status-pending { background: #fff8e6; color: #c8860a; }
+  .status-pending   { background: #fff8e6; color: #c8860a; }
   .status-confirmed { background: #e8f4ea; color: #2d7a3a; }
-  .status-progress { background: #e8f0fc; color: #2a5cc4; }
-  .status-done { background: #f0f0f0; color: #666; }
-  .status-waiting { background: #fce8e8; color: #c42a2a; }
+  .status-progress  { background: #e8f0fc; color: #2a5cc4; }
+  .status-done      { background: #f0f0f0; color: #666; }
+  .status-waiting   { background: #fce8e8; color: #c42a2a; }
+  .status-delayed   { background: #fff3e0; color: #e65100; }
+  .status-overdue   { background: #fce4ec; color: #880e4f; }
 
   .section { display: none; }
   .section.active { display: block; }
@@ -431,6 +460,64 @@ $allAppointments = mysqli_query($conn, "
     color: var(--medium-brown);
     margin-top: 4px;
   }
+
+  /* Appointment detail modal */
+  .appt-modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  .appt-modal-overlay.open { display: flex; }
+  .appt-modal {
+    background: #fff;
+    border-radius: 20px;
+    width: 520px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+    padding: 32px 30px 28px;
+    position: relative;
+    direction: rtl;
+  }
+  .appt-modal-close {
+    position: absolute; top: 18px; left: 20px;
+    background: none; border: none; font-size: 1.3rem;
+    cursor: pointer; color: #aaa; line-height: 1;
+  }
+  .appt-modal-close:hover { color: var(--deep-red); }
+  .appt-modal-title {
+    font-size: 1.1rem; font-weight: 800; color: var(--deep-red); margin-bottom: 4px;
+  }
+  .appt-modal-id { font-size: 0.75rem; color: #aaa; margin-bottom: 20px; }
+  .appt-modal-section { margin-bottom: 18px; }
+  .appt-modal-section-label {
+    font-size: 0.68rem; font-weight: 700; color: #bbb;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    margin-bottom: 8px; border-bottom: 1px solid #f0ebe4; padding-bottom: 5px;
+  }
+  .appt-modal-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .appt-modal-field { display: flex; flex-direction: column; gap: 2px; }
+  .appt-modal-field span { font-size: 0.72rem; color: #aaa; }
+  .appt-modal-field strong { font-size: 0.88rem; color: #222; font-weight: 600; }
+  .appt-modal-tests {
+    background: #faf8f5; border-radius: 10px;
+    padding: 10px 14px; font-size: 0.85rem; color: #444; line-height: 1.7;
+  }
+  .appt-modal-total {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(82,0,0,0.05); border-radius: 10px;
+    padding: 10px 14px; margin-top: 6px;
+  }
+  .appt-modal-total span { font-size: 0.82rem; color: #666; }
+  .appt-modal-total strong { font-size: 1rem; color: var(--deep-red); font-weight: 800; }
+  .clickable-row { cursor: pointer; transition: background 0.15s; }
+  .clickable-row:hover { background: #faf8f5; }
 </style>
 </head>
 <body>
@@ -501,11 +588,12 @@ $allAppointments = mysqli_query($conn, "
                   <div style="font-size:0.78rem;color:var(--medium-brown);"><?php echo htmlspecialchars($latest["lab_name"]); ?></div>
                   <div style="text-align:center">
                     <?php
-                      $badgeClass = "status-pending";
-                      $badgeText = "انتظار";
-                      if ($latest["status"] === "confirmed") { $badgeClass = "status-confirmed"; $badgeText = "مؤكد"; }
-                      elseif ($latest["status"] === "completed") { $badgeClass = "status-done"; $badgeText = "مكتمل"; }
+                      $badgeClass = "status-pending"; $badgeText = "انتظار";
+                      if ($latest["status"] === "confirmed")  { $badgeClass = "status-confirmed"; $badgeText = "مؤكد"; }
+                      elseif ($latest["status"] === "completed") { $badgeClass = "status-done";    $badgeText = "مكتمل"; }
                       elseif ($latest["status"] === "cancelled") { $badgeClass = "status-waiting"; $badgeText = "ملغي"; }
+                      elseif ($latest["status"] === "delayed")   { $badgeClass = "status-delayed"; $badgeText = "متأخر"; }
+                      elseif ($latest["status"] === "overdue")   { $badgeClass = "status-overdue"; $badgeText = "منتهي"; }
                     ?>
                     <span class="status-badge <?php echo $badgeClass; ?>"><?php echo $badgeText; ?></span>
                   </div>
@@ -782,20 +870,33 @@ $allAppointments = mysqli_query($conn, "
       </div>
 
       <?php if (mysqli_num_rows($allAppointments) > 0): ?>
-        <?php while ($appointment = mysqli_fetch_assoc($allAppointments)): ?>
-          <div class="table-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;">
+        <?php while ($appointment = mysqli_fetch_assoc($allAppointments)):
+          $rowClass = "status-pending"; $rowText = "انتظار";
+          if ($appointment["status"] === "confirmed")  { $rowClass = "status-confirmed"; $rowText = "مؤكد"; }
+          elseif ($appointment["status"] === "completed") { $rowClass = "status-done";    $rowText = "مكتمل"; }
+          elseif ($appointment["status"] === "cancelled") { $rowClass = "status-waiting"; $rowText = "ملغي"; }
+          elseif ($appointment["status"] === "delayed")   { $rowClass = "status-delayed"; $rowText = "متأخر"; }
+          elseif ($appointment["status"] === "overdue")   { $rowClass = "status-overdue"; $rowText = "منتهي"; }
+          $slotTimeFmt = $appointment["slot_time"] ? date("h:i A", strtotime($appointment["slot_time"])) : "—";
+        ?>
+          <div class="table-row clickable-row" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr;"
+            onclick="openApptModal(<?php echo (int)$appointment['appointment_id']; ?>,
+              '<?php echo addslashes(htmlspecialchars($appointment["customer_name"])); ?>',
+              '<?php echo addslashes(htmlspecialchars($appointment["customer_email"])); ?>',
+              '<?php echo addslashes(htmlspecialchars($appointment["customer_phone"])); ?>',
+              '<?php echo addslashes(htmlspecialchars($appointment["lab_name"])); ?>',
+              '<?php echo addslashes(htmlspecialchars($appointment["lab_address"])); ?>',
+              '<?php echo addslashes(htmlspecialchars($appointment["lab_phone"])); ?>',
+              '<?php echo addslashes(htmlspecialchars($appointment["slot_date"])); ?>',
+              '<?php echo addslashes($slotTimeFmt); ?>',
+              '<?php echo addslashes(htmlspecialchars($appointment["tests"] ?: "—")); ?>',
+              '<?php echo number_format((float)$appointment["total_price"], 2); ?>',
+              '<?php echo addslashes($rowText); ?>')">
             <div><div style="font-size:0.85rem;font-weight:600;"><?php echo htmlspecialchars($appointment["customer_name"]); ?></div></div>
             <div style="font-size:0.8rem;color:var(--medium-brown);"><?php echo htmlspecialchars($appointment["tests"] ?: "—"); ?></div>
             <div style="font-size:0.8rem;color:#555;"><?php echo htmlspecialchars($appointment["lab_name"]); ?></div>
             <div style="font-size:0.8rem;color:#555;"><?php echo htmlspecialchars($appointment["slot_date"]); ?></div>
             <div style="text-align:center">
-              <?php
-                $rowClass = "status-pending";
-                $rowText = "انتظار";
-                if ($appointment["status"] === "confirmed") { $rowClass = "status-confirmed"; $rowText = "مؤكد"; }
-                elseif ($appointment["status"] === "completed") { $rowClass = "status-done"; $rowText = "مكتمل"; }
-                elseif ($appointment["status"] === "cancelled") { $rowClass = "status-waiting"; $rowText = "ملغي"; }
-              ?>
               <span class="status-badge <?php echo $rowClass; ?>"><?php echo $rowText; ?></span>
             </div>
           </div>
@@ -810,7 +911,77 @@ $allAppointments = mysqli_query($conn, "
 
 </main>
 
+<!-- Appointment Detail Modal -->
+<div class="appt-modal-overlay" id="apptModalOverlay" onclick="closeApptModal(event)">
+  <div class="appt-modal">
+    <button class="appt-modal-close" onclick="document.getElementById('apptModalOverlay').classList.remove('open')">✕</button>
+    <div class="appt-modal-title">تفاصيل الموعد</div>
+    <div class="appt-modal-id" id="modalApptId"></div>
+
+    <div class="appt-modal-section">
+      <div class="appt-modal-section-label">بيانات العميل</div>
+      <div class="appt-modal-grid">
+        <div class="appt-modal-field"><span>الاسم</span><strong id="modalCustomerName"></strong></div>
+        <div class="appt-modal-field"><span>رقم الجوال</span><strong id="modalCustomerPhone"></strong></div>
+        <div class="appt-modal-field" style="grid-column:1/-1;"><span>البريد الإلكتروني</span><strong id="modalCustomerEmail"></strong></div>
+      </div>
+    </div>
+
+    <div class="appt-modal-section">
+      <div class="appt-modal-section-label">بيانات المختبر</div>
+      <div class="appt-modal-grid">
+        <div class="appt-modal-field"><span>اسم المختبر</span><strong id="modalLabName"></strong></div>
+        <div class="appt-modal-field"><span>رقم الجوال</span><strong id="modalLabPhone"></strong></div>
+        <div class="appt-modal-field" style="grid-column:1/-1;"><span>العنوان</span><strong id="modalLabAddress"></strong></div>
+      </div>
+    </div>
+
+    <div class="appt-modal-section">
+      <div class="appt-modal-section-label">وقت الموعد</div>
+      <div class="appt-modal-grid">
+        <div class="appt-modal-field"><span>التاريخ</span><strong id="modalSlotDate"></strong></div>
+        <div class="appt-modal-field"><span>الوقت</span><strong id="modalSlotTime"></strong></div>
+        <div class="appt-modal-field"><span>الحالة</span><strong id="modalStatus"></strong></div>
+      </div>
+    </div>
+
+    <div class="appt-modal-section">
+      <div class="appt-modal-section-label">الفحوصات المطلوبة</div>
+      <div class="appt-modal-tests" id="modalTests"></div>
+      <div class="appt-modal-total">
+        <span>إجمالي التكلفة</span>
+        <strong id="modalTotal"></strong>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+function openApptModal(id, customerName, customerEmail, customerPhone, labName, labAddress, labPhone, slotDate, slotTime, tests, total, status) {
+  document.getElementById('modalApptId').textContent       = 'رقم الموعد: #' + id;
+  document.getElementById('modalCustomerName').textContent  = customerName;
+  document.getElementById('modalCustomerEmail').textContent = customerEmail;
+  document.getElementById('modalCustomerPhone').textContent = customerPhone;
+  document.getElementById('modalLabName').textContent       = labName;
+  document.getElementById('modalLabAddress').textContent    = labAddress;
+  document.getElementById('modalLabPhone').textContent      = labPhone;
+  document.getElementById('modalSlotDate').textContent      = slotDate;
+  document.getElementById('modalSlotTime').textContent      = slotTime;
+  document.getElementById('modalTests').textContent         = tests;
+  document.getElementById('modalTotal').textContent         = total + ' ريال';
+  document.getElementById('modalStatus').textContent        = status;
+  document.getElementById('apptModalOverlay').classList.add('open');
+}
+
+function closeApptModal(e) {
+  if (e && e.target !== document.getElementById('apptModalOverlay')) return;
+  document.getElementById('apptModalOverlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') document.getElementById('apptModalOverlay').classList.remove('open');
+});
+
 function showSection(name, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-' + name).classList.add('active');

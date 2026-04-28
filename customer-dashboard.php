@@ -1415,22 +1415,13 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
       <div class="booking-form-grid">
         <div class="booking-field">
           <label>اختر اليوم</label>
-          <input type="date" id="bookingDate">
+          <input type="date" id="bookingDate" min="<?php echo date('Y-m-d'); ?>" onchange="fetchAvailableSlots()">
         </div>
 
         <div class="booking-field">
           <label>اختر الوقت</label>
-          <select id="bookingTime">
-            <option value="">اختر الوقت</option>
-            <option value="08:00:00">٨:٠٠ ص</option>
-            <option value="09:00:00">٩:٠٠ ص</option>
-            <option value="10:00:00">١٠:٠٠ ص</option>
-            <option value="11:00:00">١١:٠٠ ص</option>
-            <option value="12:00:00">١٢:٠٠ م</option>
-            <option value="13:00:00">١:٠٠ م</option>
-            <option value="14:00:00">٢:٠٠ م</option>
-            <option value="15:00:00">٣:٠٠ م</option>
-            <option value="16:00:00">٤:٠٠ م</option>
+          <select id="bookingTime" disabled>
+            <option value="">اختر اليوم أولاً</option>
           </select>
         </div>
       </div>
@@ -1685,7 +1676,51 @@ function cancelAppointment(btn, appointmentId) {
   .catch(() => alert('حدث خطأ في الاتصال بالخادم'));
 }
 
+let selectedLabName = null;
+let selectedLabTests = null;
 
+function formatTime(timeStr) {
+  const parts = timeStr.split(':');
+  let h = parseInt(parts[0], 10);
+  const m = parts[1] || '00';
+  const suffix = h < 12 ? 'ص' : 'م';
+  if (h > 12) h -= 12;
+  return h + ':' + m + ' ' + suffix;
+}
+
+function fetchAvailableSlots() {
+  const date = document.getElementById('bookingDate').value;
+  const timeSelect = document.getElementById('bookingTime');
+  if (!date || !selectedLabName) {
+    timeSelect.innerHTML = '<option value="">اختر اليوم أولاً</option>';
+    timeSelect.disabled = true;
+    return;
+  }
+  timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+  timeSelect.disabled = true;
+  fetch('get_available_slots.php?lab_name=' + encodeURIComponent(selectedLabName) + '&date=' + encodeURIComponent(date))
+    .then(r => r.json())
+    .then(data => {
+      timeSelect.innerHTML = '';
+      if (!data.slots || data.slots.length === 0) {
+        timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
+        timeSelect.disabled = true;
+      } else {
+        timeSelect.innerHTML = '<option value="">اختر الوقت</option>';
+        data.slots.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = formatTime(s);
+          timeSelect.appendChild(opt);
+        });
+        timeSelect.disabled = false;
+      }
+    })
+    .catch(() => {
+      timeSelect.innerHTML = '<option value="">حدث خطأ، حاول مجدداً</option>';
+      timeSelect.disabled = true;
+    });
+}
 
 function openBookingModal(labName, city, logo, tests) {
   selectedLabName = labName;
@@ -1696,7 +1731,9 @@ function openBookingModal(labName, city, logo, tests) {
   document.getElementById('modalLabLogo').src = logo;
 
   document.getElementById('bookingDate').value = '';
-  document.getElementById('bookingTime').value = '';
+  const timeSelect = document.getElementById('bookingTime');
+  timeSelect.innerHTML = '<option value="">اختر اليوم أولاً</option>';
+  timeSelect.disabled = true;
   document.getElementById('confirmBox').style.display = 'none';
   document.getElementById('bookingFormStep').style.display = 'block';
   document.getElementById('bookingSummaryStep').style.display = 'none';
