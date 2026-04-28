@@ -1120,24 +1120,9 @@ function selectResult(index) {
             style="padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;text-align:right;"
           >
 
-          <input
-            type="text"
-            name="normal_range[]"
-            placeholder="النطاق الطبيعي"
-                      required
-            style="padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;text-align:right;"
-          >
+          
 
-          <select
-            name="status_flag[]"
-            required
-            style="padding:11px 14px;border:1.5px solid #e8e0d8;border-radius:10px;font-family:Tajawal,sans-serif;font-size:0.9rem;outline:none;background:#faf8f5;"
-          >
-            <option value="">اختر الحالة</option>
-            <option value="normal">طبيعي</option>
-            <option value="low">منخفض</option>
-            <option value="high">مرتفع</option>
-          </select>
+          
         </div>
       </div>
     `;
