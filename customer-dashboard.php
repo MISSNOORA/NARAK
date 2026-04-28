@@ -1435,6 +1435,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Other/html.html to edit this temp
         </div>
       </div>
 
+      <div id="bookingWarning" style="display:none;margin-bottom:12px;background:#fff3cd;border-right:4px solid #c8860a;border-radius:10px;padding:12px 14px;font-size:0.85rem;color:#7a4f00;font-weight:600;"></div>
+
       <div class="booking-actions">
         <button class="booking-btn-cancel" onclick="closeBookingModal()">رجوع</button>
         <button class="booking-btn-confirm" onclick="showBookingSummary()">مراجعة الحجز ←</button>
@@ -1698,6 +1700,7 @@ function openBookingModal(labName, city, logo, tests) {
   document.getElementById('confirmBox').style.display = 'none';
   document.getElementById('bookingFormStep').style.display = 'block';
   document.getElementById('bookingSummaryStep').style.display = 'none';
+  clearBookingWarning();
 
   const testsInfo = document.getElementById('modalTestsInfo');
   const testsSelect = document.getElementById('modalTestsSelect');
@@ -1828,17 +1831,29 @@ function openEditModal(btn) {
   }, 100);
 }
 
+function showBookingWarning(msg) {
+  const el = document.getElementById('bookingWarning');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function clearBookingWarning() {
+  const el = document.getElementById('bookingWarning');
+  if (el) el.style.display = 'none';
+}
+
 function showBookingSummary() {
   const checked = [...document.querySelectorAll('.test-checkbox:checked')];
   const date = document.getElementById('bookingDate').value;
   const time = document.getElementById('bookingTime').value;
 
   if (checked.length < 1 || checked.length > 3) {
-    alert('اختاري من تحليل واحد إلى ثلاثة تحاليل');
+    showBookingWarning('اختاري من تحليل واحد إلى ثلاثة تحاليل');
     return;
   }
-  if (!date) { alert('اختاري اليوم أولاً'); return; }
-  if (!time) { alert('اختاري الوقت أولاً'); return; }
+  if (!date) { showBookingWarning('اختاري اليوم أولاً'); return; }
+  if (!time) { showBookingWarning('اختاري الوقت أولاً'); return; }
+  clearBookingWarning();
 
   const labName = document.getElementById('modalLabName').textContent;
   const total = checked.reduce((sum, cb) => sum + Number(cb.dataset.price || 0), 0);
